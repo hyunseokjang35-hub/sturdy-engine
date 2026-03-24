@@ -1,0 +1,1416 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>가상 실험실 - 고체에서 열의 이동</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Noto Sans KR', sans-serif;
+  overflow: hidden;
+  background: #1a1a2e;
+  width: 100vw;
+  height: 100vh;
+}
+
+#canvas-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+canvas { display: block; }
+
+/* Header */
+#header {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 56px;
+  background: linear-gradient(135deg, #00b894 0%, #00cec9 100%);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  z-index: 100;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+
+#header .mascot {
+  width: 40px; height: 40px;
+  background: #55efc4;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  margin-right: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+#header .title-badge {
+  background: rgba(255,255,255,0.25);
+  border-radius: 20px;
+  padding: 4px 16px;
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+  margin-right: 16px;
+}
+
+#header .subtitle {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Guide bubble */
+#guide-bubble {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #fff;
+  border-radius: 24px;
+  padding: 16px 28px;
+  font-size: 16px;
+  font-weight: 500;
+  color: #2d3436;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  z-index: 100;
+  max-width: 600px;
+  text-align: center;
+  line-height: 1.6;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 1;
+}
+
+#guide-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0; height: 0;
+  border-left: 12px solid transparent;
+  border-right: 12px solid transparent;
+  border-top: 12px solid #fff;
+}
+
+/* Side panel for copper plates */
+#side-panel {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  z-index: 100;
+}
+
+.plate-option {
+  width: 110px;
+  background: rgba(255,255,255,0.95);
+  border-radius: 16px;
+  padding: 12px;
+  text-align: center;
+  cursor: grab;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  user-select: none;
+}
+
+.plate-option:hover {
+  transform: scale(1.08);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.25);
+}
+
+.plate-option:active { cursor: grabbing; }
+
+.plate-option .plate-preview {
+  width: 80px;
+  height: 60px;
+  margin: 0 auto 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.plate-option .plate-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #2d3436;
+}
+
+/* Sticker option */
+#sticker-panel {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 100;
+  display: none;
+}
+
+.sticker-option {
+  width: 120px;
+  background: rgba(255,255,255,0.95);
+  border-radius: 16px;
+  padding: 16px;
+  text-align: center;
+  cursor: grab;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  transition: all 0.3s ease;
+}
+
+.sticker-option:hover {
+  transform: scale(1.08);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.25);
+}
+
+.sticker-preview {
+  width: 80px;
+  height: 50px;
+  background: linear-gradient(135deg, #e84393, #fd79a8);
+  border-radius: 8px;
+  margin: 0 auto 8px;
+}
+
+.sticker-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #2d3436;
+}
+
+/* Candle option */
+#candle-panel {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 100;
+  display: none;
+}
+
+.candle-option {
+  width: 120px;
+  background: rgba(255,255,255,0.95);
+  border-radius: 16px;
+  padding: 16px;
+  text-align: center;
+  cursor: grab;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  transition: all 0.3s ease;
+}
+
+.candle-option:hover {
+  transform: scale(1.08);
+}
+
+.candle-preview {
+  width: 50px;
+  height: 60px;
+  margin: 0 auto 8px;
+  position: relative;
+}
+
+.candle-body {
+  width: 40px; height: 30px;
+  background: linear-gradient(to bottom, #dfe6e9, #b2bec3);
+  border-radius: 4px;
+  margin: 20px auto 0;
+}
+
+.candle-flame {
+  width: 12px; height: 20px;
+  background: radial-gradient(ellipse, #ffeaa7, #fdcb6e, #e17055);
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  margin: 0 auto;
+  animation: flicker 0.5s infinite alternate;
+}
+
+@keyframes flicker {
+  0% { transform: scaleY(1) scaleX(1); }
+  100% { transform: scaleY(1.1) scaleX(0.9); }
+}
+
+.candle-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #2d3436;
+}
+
+/* Heat point selector */
+#heat-point-panel {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 100;
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.heat-btn {
+  padding: 14px 24px;
+  background: linear-gradient(135deg, #e17055, #d63031);
+  color: #fff;
+  border: none;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'Noto Sans KR', sans-serif;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 16px rgba(214, 48, 49, 0.3);
+}
+
+.heat-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(214, 48, 49, 0.4);
+}
+
+.heat-btn.active {
+  background: linear-gradient(135deg, #fdcb6e, #e17055);
+}
+
+/* Step indicator */
+#step-indicator {
+  position: absolute;
+  top: 72px;
+  left: 24px;
+  display: flex;
+  gap: 8px;
+  z-index: 100;
+}
+
+.step-dot {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.5);
+  transition: all 0.4s ease;
+}
+
+.step-dot.active {
+  background: #00b894;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(0, 184, 148, 0.4);
+}
+
+.step-dot.completed {
+  background: #55efc4;
+  color: #fff;
+}
+
+/* Next button */
+#next-btn {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  padding: 14px 32px;
+  background: linear-gradient(135deg, #00b894, #00cec9);
+  color: #fff;
+  border: none;
+  border-radius: 16px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'Noto Sans KR', sans-serif;
+  z-index: 100;
+  box-shadow: 0 4px 20px rgba(0, 184, 148, 0.4);
+  transition: all 0.3s ease;
+  display: none;
+}
+
+#next-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(0, 184, 148, 0.5);
+}
+
+/* Reset button */
+#reset-btn {
+  position: absolute;
+  bottom: 24px;
+  left: 24px;
+  width: 48px;
+  height: 48px;
+  background: rgba(255,255,255,0.15);
+  border: 2px solid rgba(255,255,255,0.3);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 100;
+  transition: all 0.3s ease;
+  color: #fff;
+  font-size: 20px;
+}
+
+#reset-btn:hover {
+  background: rgba(255,255,255,0.25);
+  transform: rotate(-180deg);
+}
+
+/* Summary overlay */
+#summary-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(8px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+#summary-card {
+  background: #fff;
+  border-radius: 24px;
+  padding: 48px;
+  max-width: 560px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes popIn {
+  0% { transform: scale(0.8); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+#summary-card h2 {
+  font-size: 24px;
+  color: #00b894;
+  margin-bottom: 8px;
+}
+
+#summary-card .icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+#summary-card p {
+  font-size: 18px;
+  color: #2d3436;
+  line-height: 1.8;
+  margin-bottom: 24px;
+}
+
+#summary-card .highlight {
+  background: linear-gradient(135deg, #00b894, #00cec9);
+  color: #fff;
+  padding: 16px 24px;
+  border-radius: 16px;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+#summary-card button {
+  margin-top: 24px;
+  padding: 12px 32px;
+  background: linear-gradient(135deg, #00b894, #00cec9);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'Noto Sans KR', sans-serif;
+}
+
+/* Zoom controls */
+#zoom-controls {
+  position: absolute;
+  left: 24px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 100;
+}
+
+.zoom-btn {
+  width: 42px;
+  height: 42px;
+  background: rgba(255,255,255,0.15);
+  border: 2px solid rgba(255,255,255,0.3);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+  transition: all 0.2s ease;
+}
+
+.zoom-btn:hover {
+  background: rgba(255,255,255,0.25);
+}
+
+/* Loading */
+#loading {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: #1a1a2e;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+  transition: opacity 0.5s ease;
+}
+
+#loading .spinner {
+  width: 48px; height: 48px;
+  border: 4px solid rgba(0,184,148,0.2);
+  border-top-color: #00b894;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { 100% { transform: rotate(360deg); } }
+
+#loading p {
+  color: #fff;
+  margin-top: 16px;
+  font-weight: 500;
+}
+
+/* Drop zone indicator */
+.drop-highlight {
+  animation: pulseGlow 1s infinite;
+}
+
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <p>가상 실험실을 준비하고 있어요...</p>
+</div>
+
+<div id="canvas-container">
+  <!-- Header -->
+  <div id="header">
+    <div class="mascot">🔬</div>
+    <div class="title-badge">가상 실험실</div>
+    <div class="subtitle">고체에서 열의 이동으로 나타나는 현상 관찰하기</div>
+  </div>
+
+  <!-- Step indicator -->
+  <div id="step-indicator">
+    <div class="step-dot active" id="dot-1">1</div>
+    <div class="step-dot" id="dot-2">2</div>
+    <div class="step-dot" id="dot-3">3</div>
+    <div class="step-dot" id="dot-4">4</div>
+  </div>
+
+  <!-- Guide bubble -->
+  <div id="guide-bubble">
+    세 가지 모양의 구리판 중 하나를 골라 스탠드로 드래그해 주세요.
+  </div>
+
+  <!-- Side panel: copper plates -->
+  <div id="side-panel">
+    <div class="plate-option" draggable="true" data-plate="bar">
+      <div class="plate-preview">
+        <svg width="80" height="20" viewBox="0 0 80 20">
+          <rect x="0" y="2" width="80" height="16" rx="3" fill="#e8a87c" stroke="#d4845a" stroke-width="1"/>
+          <rect x="2" y="4" width="76" height="12" rx="2" fill="linear-gradient(#e8a87c, #d4845a)"/>
+        </svg>
+      </div>
+      <div class="plate-label">길게 자른 구리판</div>
+    </div>
+    <div class="plate-option" draggable="true" data-plate="square">
+      <div class="plate-preview">
+        <svg width="60" height="60" viewBox="0 0 60 60">
+          <rect x="2" y="2" width="56" height="56" rx="3" fill="#e8a87c" stroke="#d4845a" stroke-width="1"/>
+        </svg>
+      </div>
+      <div class="plate-label">정사각형 구리판</div>
+    </div>
+    <div class="plate-option" draggable="true" data-plate="c-shape">
+      <div class="plate-preview">
+        <svg width="60" height="60" viewBox="0 0 60 60">
+          <path d="M10,5 L55,5 L55,20 L25,20 L25,40 L55,40 L55,55 L10,55 Z" fill="#e8a87c" stroke="#d4845a" stroke-width="1"/>
+        </svg>
+      </div>
+      <div class="plate-label">ㄷ 모양 구리판</div>
+    </div>
+  </div>
+
+  <!-- Sticker panel -->
+  <div id="sticker-panel">
+    <div class="sticker-option" draggable="true" id="sticker-drag">
+      <div class="sticker-preview"></div>
+      <div class="sticker-label">열 변색 붙임딱지</div>
+    </div>
+  </div>
+
+  <!-- Candle panel -->
+  <div id="candle-panel">
+    <div class="candle-option" draggable="true" id="candle-drag">
+      <div class="candle-preview">
+        <div class="candle-flame"></div>
+        <div class="candle-body"></div>
+      </div>
+      <div class="candle-label">초 🕯️</div>
+    </div>
+  </div>
+
+  <!-- Heat point panel -->
+  <div id="heat-point-panel">
+    <button class="heat-btn" data-point="end" onclick="selectHeatPoint('end')">한쪽 끝 가열</button>
+    <button class="heat-btn" data-point="center" onclick="selectHeatPoint('center')">가운데 가열</button>
+  </div>
+
+  <!-- Zoom controls -->
+  <div id="zoom-controls">
+    <div class="zoom-btn" onclick="zoomIn()">+</div>
+    <div class="zoom-btn" onclick="zoomOut()">−</div>
+    <div class="zoom-btn" onclick="resetView()">⟳</div>
+  </div>
+
+  <!-- Next button -->
+  <button id="next-btn" onclick="nextStep()">다음 단계 →</button>
+
+  <!-- Reset button -->
+  <div id="reset-btn" onclick="resetExperiment()">↺</div>
+</div>
+
+<!-- Summary overlay -->
+<div id="summary-overlay">
+  <div id="summary-card">
+    <div class="icon">🔥</div>
+    <h2>실험 결과 정리</h2>
+    <p>세 가지 모양의 구리판에서 열의 이동을 관찰했어요!</p>
+    <div class="highlight">
+      고체에서는 온도가 높은 곳에서 온도가 낮은 곳으로<br>
+      물체를 따라 열이 이동합니다.
+    </div>
+    <button onclick="resetExperiment()">처음부터 다시하기</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ============ STATE ============
+let currentStep = 0; // 0: pick plate, 1: sticker, 2: heat end, 3: heat center, 4: summary
+let currentPlate = null; // 'bar', 'square', 'c-shape'
+let heatingPhase = null; // 'end' or 'center'
+let isHeating = false;
+let heatTime = 0;
+let heatSpeed = 0.012;
+let heatSourcePos = null;
+
+// 3D scene
+let scene, camera, renderer, controls;
+let standGroup, plateGroup, stickerGroup, candleGroup, tripodGroup;
+let plateMesh, stickerMeshes = [];
+let candleMesh, flameMesh, flameLight;
+let isDragging = false, previousMouse = {x:0, y:0};
+let targetRotation = {x: 0.3, y: -0.5};
+let currentRotation = {x: 0.3, y: -0.5};
+let targetZoom = 6, currentZoom = 6;
+let dropZoneMesh;
+
+// Heat grid for simulation
+let heatGrid = [];
+let gridW = 40, gridH = 40;
+let stickerMaterials = [];
+
+// ============ INIT ============
+function init() {
+  scene = new THREE.Scene();
+  
+  // Background gradient
+  const bgCanvas = document.createElement('canvas');
+  bgCanvas.width = 512; bgCanvas.height = 512;
+  const bgCtx = bgCanvas.getContext('2d');
+  const grad = bgCtx.createLinearGradient(0, 0, 0, 512);
+  grad.addColorStop(0, '#636e72');
+  grad.addColorStop(0.5, '#b2bec3');
+  grad.addColorStop(1, '#dfe6e9');
+  bgCtx.fillStyle = grad;
+  bgCtx.fillRect(0, 0, 512, 512);
+  const bgTex = new THREE.CanvasTexture(bgCanvas);
+  scene.background = bgTex;
+
+  // Camera
+  camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+  camera.position.set(0, 3, 6);
+  camera.lookAt(0, 1, 0);
+
+  // Renderer
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.2;
+  document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+  // Lights
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+  scene.add(ambientLight);
+
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+  dirLight.position.set(5, 8, 5);
+  dirLight.castShadow = true;
+  dirLight.shadow.mapSize.set(2048, 2048);
+  dirLight.shadow.camera.near = 0.5;
+  dirLight.shadow.camera.far = 30;
+  dirLight.shadow.camera.left = -8;
+  dirLight.shadow.camera.right = 8;
+  dirLight.shadow.camera.top = 8;
+  dirLight.shadow.camera.bottom = -8;
+  scene.add(dirLight);
+
+  const fillLight = new THREE.DirectionalLight(0x88ccff, 0.3);
+  fillLight.position.set(-3, 4, -2);
+  scene.add(fillLight);
+
+  const rimLight = new THREE.DirectionalLight(0xffeedd, 0.2);
+  rimLight.position.set(0, 2, -5);
+  scene.add(rimLight);
+
+  // Floor
+  const floorGeo = new THREE.PlaneGeometry(20, 20);
+  const floorMat = new THREE.MeshStandardMaterial({ 
+    color: 0x95a5a6, roughness: 0.8, metalness: 0.1 
+  });
+  const floor = new THREE.Mesh(floorGeo, floorMat);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = -0.01;
+  floor.receiveShadow = true;
+  scene.add(floor);
+
+  // Lab table surface
+  const tableMat = new THREE.MeshStandardMaterial({ 
+    color: 0x636e72, roughness: 0.3, metalness: 0.1 
+  });
+  const tableGeo = new THREE.BoxGeometry(8, 0.08, 5);
+  const table = new THREE.Mesh(tableGeo, tableMat);
+  table.position.y = 0;
+  table.receiveShadow = true;
+  table.castShadow = true;
+  scene.add(table);
+
+  // Build stand
+  buildStand();
+  
+  // Drop zone indicator
+  const dzGeo = new THREE.RingGeometry(0.3, 0.5, 32);
+  const dzMat = new THREE.MeshBasicMaterial({ color: 0x00b894, transparent: true, opacity: 0.5, side: THREE.DoubleSide });
+  dropZoneMesh = new THREE.Mesh(dzGeo, dzMat);
+  dropZoneMesh.rotation.x = -Math.PI / 2;
+  dropZoneMesh.position.set(1.2, 2.2, 0);
+  dropZoneMesh.visible = true;
+  scene.add(dropZoneMesh);
+
+  // Events
+  setupEvents();
+
+  // Hide loading
+  setTimeout(() => {
+    document.getElementById('loading').style.opacity = '0';
+    setTimeout(() => document.getElementById('loading').style.display = 'none', 500);
+  }, 800);
+
+  animate();
+}
+
+function buildStand() {
+  standGroup = new THREE.Group();
+  
+  const metalMat = new THREE.MeshStandardMaterial({ 
+    color: 0xcccccc, roughness: 0.2, metalness: 0.9 
+  });
+  const darkMat = new THREE.MeshStandardMaterial({ 
+    color: 0x2d3436, roughness: 0.4, metalness: 0.3 
+  });
+
+  // Base plate
+  const baseGeo = new THREE.BoxGeometry(2.2, 0.15, 1.5);
+  const base = new THREE.Mesh(baseGeo, darkMat);
+  base.position.y = 0.12;
+  base.castShadow = true;
+  base.receiveShadow = true;
+  standGroup.add(base);
+
+  // Vertical pole
+  const poleGeo = new THREE.CylinderGeometry(0.06, 0.06, 3.5, 16);
+  const pole = new THREE.Mesh(poleGeo, metalMat);
+  pole.position.set(-0.3, 1.95, 0);
+  pole.castShadow = true;
+  standGroup.add(pole);
+
+  // Horizontal bar
+  const hBarGeo = new THREE.CylinderGeometry(0.04, 0.04, 2.5, 12);
+  const hBar = new THREE.Mesh(hBarGeo, metalMat);
+  hBar.rotation.z = Math.PI / 2;
+  hBar.position.set(0.7, 2.2, 0);
+  hBar.castShadow = true;
+  standGroup.add(hBar);
+
+  // Clamp knob
+  const knobGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.1, 16);
+  const knobMat = new THREE.MeshStandardMaterial({ color: 0xffeaa7, roughness: 0.5, metalness: 0.1 });
+  const knob = new THREE.Mesh(knobGeo, knobMat);
+  knob.rotation.x = Math.PI / 2;
+  knob.position.set(0.4, 2.2, 0.08);
+  standGroup.add(knob);
+
+  // Clamp jaws
+  const jawMat = new THREE.MeshStandardMaterial({ color: 0xd63031, roughness: 0.3, metalness: 0.2 });
+  const jawGeo = new THREE.BoxGeometry(0.4, 0.08, 0.15);
+  const jaw1 = new THREE.Mesh(jawGeo, jawMat);
+  jaw1.position.set(0.85, 2.25, 0);
+  standGroup.add(jaw1);
+  const jaw2 = new THREE.Mesh(jawGeo, jawMat);
+  jaw2.position.set(0.85, 2.15, 0);
+  standGroup.add(jaw2);
+
+  // Clamp screw
+  const screwGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.2, 8);
+  const screw = new THREE.Mesh(screwGeo, metalMat);
+  screw.position.set(0.85, 2.05, 0);
+  standGroup.add(screw);
+
+  const screwHead = new THREE.SphereGeometry(0.04, 8, 8);
+  const screwH = new THREE.Mesh(screwHead, new THREE.MeshStandardMaterial({ color: 0x0984e3, roughness: 0.3, metalness: 0.6 }));
+  screwH.position.set(0.85, 1.95, 0);
+  standGroup.add(screwH);
+
+  standGroup.position.set(-1, 0, 0);
+  scene.add(standGroup);
+}
+
+function createCopperPlate(type) {
+  plateGroup = new THREE.Group();
+  const copperMat = new THREE.MeshStandardMaterial({ 
+    color: 0xe8a87c, roughness: 0.3, metalness: 0.7 
+  });
+  
+  let geo;
+  if (type === 'bar') {
+    geo = new THREE.BoxGeometry(3, 0.06, 0.5);
+  } else if (type === 'square') {
+    geo = new THREE.BoxGeometry(1.8, 0.06, 1.8);
+  } else { // c-shape
+    // Build ㄷ shape from 3 boxes
+    const top = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.06, 0.4), copperMat);
+    top.position.set(0, 0, -0.7);
+    top.castShadow = true;
+    plateGroup.add(top);
+    
+    const bottom = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.06, 0.4), copperMat);
+    bottom.position.set(0, 0, 0.7);
+    bottom.castShadow = true;
+    plateGroup.add(bottom);
+    
+    const left = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.06, 1.8), copperMat);
+    left.position.set(-0.7, 0, 0);
+    left.castShadow = true;
+    plateGroup.add(left);
+    
+    plateGroup.position.set(0.6, 2.25, 0);
+    scene.add(plateGroup);
+    return;
+  }
+  
+  plateMesh = new THREE.Mesh(geo, copperMat);
+  plateMesh.castShadow = true;
+  plateMesh.receiveShadow = true;
+  plateGroup.add(plateMesh);
+  
+  plateGroup.position.set(0.6, 2.25, 0);
+  scene.add(plateGroup);
+}
+
+function createSticker() {
+  stickerGroup = new THREE.Group();
+  stickerMeshes = [];
+  stickerMaterials = [];
+  
+  // Initialize heat grid
+  heatGrid = [];
+  for (let i = 0; i < gridW; i++) {
+    heatGrid[i] = [];
+    for (let j = 0; j < gridH; j++) {
+      heatGrid[i][j] = 0;
+    }
+  }
+
+  if (currentPlate === 'bar') {
+    createStickerQuad(3, 0.5, 0, 0);
+  } else if (currentPlate === 'square') {
+    createStickerQuad(1.8, 1.8, 0, 0);
+  } else {
+    // ㄷ shape stickers
+    createStickerQuad(1.8, 0.4, 0, -0.7);
+    createStickerQuad(1.8, 0.4, 0, 0.7);
+    createStickerQuad(0.4, 1.8, -0.7, 0);
+  }
+  
+  stickerGroup.position.copy(plateGroup.position);
+  stickerGroup.position.y += 0.04;
+  scene.add(stickerGroup);
+}
+
+function createStickerQuad(w, h, ox, oz) {
+  const segX = Math.max(2, Math.round(w * 10));
+  const segZ = Math.max(2, Math.round(h * 10));
+  const geo = new THREE.PlaneGeometry(w * 0.95, h * 0.95, segX, segZ);
+  
+  // Create color attribute
+  const count = geo.attributes.position.count;
+  const colors = new Float32Array(count * 3);
+  // Initialize to dark pink (다홍색)
+  for (let i = 0; i < count; i++) {
+    colors[i * 3] = 0.91;     // R ~232
+    colors[i * 3 + 1] = 0.27; // G ~69
+    colors[i * 3 + 2] = 0.47; // B ~120
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  
+  const mat = new THREE.MeshStandardMaterial({
+    vertexColors: true,
+    roughness: 0.6,
+    metalness: 0.05,
+    side: THREE.DoubleSide
+  });
+  
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.set(ox, 0, oz);
+  
+  stickerGroup.add(mesh);
+  stickerMeshes.push(mesh);
+  stickerMaterials.push({ mesh, mat, geo, segX, segZ, w, h, ox, oz });
+}
+
+function buildTripodAndCandle(posX, posZ) {
+  candleGroup = new THREE.Group();
+  
+  // Tripod legs
+  const legMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.2, metalness: 0.9 });
+  for (let i = 0; i < 3; i++) {
+    const angle = (i / 3) * Math.PI * 2;
+    const legGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.8, 6);
+    const leg = new THREE.Mesh(legGeo, legMat);
+    leg.position.set(Math.cos(angle) * 0.25, 0.4, Math.sin(angle) * 0.25);
+    leg.rotation.x = Math.sin(angle) * 0.15;
+    leg.rotation.z = -Math.cos(angle) * 0.15;
+    leg.castShadow = true;
+    candleGroup.add(leg);
+  }
+  
+  // Ring at top
+  const ringGeo = new THREE.TorusGeometry(0.2, 0.015, 8, 24);
+  const ring = new THREE.Mesh(ringGeo, legMat);
+  ring.position.y = 0.78;
+  ring.rotation.x = Math.PI / 2;
+  candleGroup.add(ring);
+  
+  // Wire gauze
+  const gauzeMat = new THREE.MeshStandardMaterial({ color: 0xb2bec3, roughness: 0.5, metalness: 0.6, wireframe: false });
+  const gauzeGeo = new THREE.PlaneGeometry(0.5, 0.5);
+  const gauze = new THREE.Mesh(gauzeGeo, gauzeMat);
+  gauze.rotation.x = -Math.PI / 2;
+  gauze.position.y = 0.8;
+  candleGroup.add(gauze);
+
+  // Candle plate
+  const platGeo = new THREE.CylinderGeometry(0.15, 0.15, 0.02, 16);
+  const platMat = new THREE.MeshStandardMaterial({ color: 0xdfe6e9, roughness: 0.3, metalness: 0.3 });
+  const plat = new THREE.Mesh(platGeo, platMat);
+  plat.position.y = 0.15;
+  candleGroup.add(plat);
+
+  // Candle body
+  const candleGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.2, 16);
+  const candleMat = new THREE.MeshStandardMaterial({ color: 0xecf0f1, roughness: 0.7, metalness: 0.0 });
+  candleMesh = new THREE.Mesh(candleGeo, candleMat);
+  candleMesh.position.y = 0.27;
+  candleMesh.castShadow = true;
+  candleGroup.add(candleMesh);
+
+  // Flame
+  const flameGeo = new THREE.SphereGeometry(0.06, 8, 12);
+  flameGeo.scale(1, 2, 1);
+  const flameMat = new THREE.MeshBasicMaterial({ color: 0xfdcb6e });
+  flameMesh = new THREE.Mesh(flameGeo, flameMat);
+  flameMesh.position.y = 0.45;
+  candleGroup.add(flameMesh);
+
+  // Flame light
+  flameLight = new THREE.PointLight(0xff9500, 1.5, 3);
+  flameLight.position.y = 0.45;
+  candleGroup.add(flameLight);
+
+  candleGroup.position.set(posX, 0.07, posZ);
+  scene.add(candleGroup);
+}
+
+// ============ HEAT SIMULATION ============
+function updateHeatSimulation(dt) {
+  if (!isHeating || stickerMaterials.length === 0) return;
+  
+  heatTime += dt;
+  
+  // For each sticker mesh, update vertex colors based on distance from heat source
+  stickerMaterials.forEach(sm => {
+    const geo = sm.geo;
+    const positions = geo.attributes.position;
+    const colors = geo.attributes.color;
+    const count = positions.count;
+    
+    for (let i = 0; i < count; i++) {
+      // World position of this vertex
+      const localX = positions.getX(i) + sm.ox;
+      const localZ = positions.getZ(i) + sm.oz;
+      
+      // Account for plate group position offset
+      const worldX = localX + plateGroup.position.x;
+      const worldZ = localZ + plateGroup.position.z;
+      
+      // Distance from heat source
+      let dist;
+      if (currentPlate === 'c-shape') {
+        // For ㄷ shape, calculate path distance along the shape
+        dist = getPathDistanceCShape(localX, localZ, heatSourcePos.x - plateGroup.position.x, heatSourcePos.z - plateGroup.position.z);
+      } else {
+        dist = Math.sqrt(
+          Math.pow(worldX - heatSourcePos.x, 2) + 
+          Math.pow(worldZ - heatSourcePos.z, 2)
+        );
+      }
+      
+      // Heat wave propagation
+      const waveSpeed = 0.8;
+      const waveReach = heatTime * waveSpeed;
+      let heat = 0;
+      
+      if (dist < waveReach) {
+        heat = Math.max(0, 1 - dist / Math.max(waveReach, 0.01));
+        heat = Math.pow(heat, 0.6);
+        // Fade in smoothly
+        const edgeFade = Math.min(1, (waveReach - dist) * 3);
+        heat *= edgeFade;
+      }
+      
+      // Interpolate from 다홍색 (dark pink) to white
+      const r = 0.91 + heat * 0.09; // 0.91 -> 1.0
+      const g = 0.27 + heat * 0.73; // 0.27 -> 1.0
+      const b = 0.47 + heat * 0.53; // 0.47 -> 1.0
+      
+      colors.setXYZ(i, r, g, b);
+    }
+    
+    colors.needsUpdate = true;
+  });
+  
+  // Check if heating is done (enough time passed)
+  if (heatTime > 6) {
+    isHeating = false;
+    showNextButton();
+  }
+}
+
+function getPathDistanceCShape(px, pz, hx, hz) {
+  // Simplified path distance for ㄷ shape - along the shape contour
+  // The ㄷ shape has: top bar (z=-0.7), left bar (x=-0.7), bottom bar (z=0.7)
+  
+  // Map point to nearest segment
+  function getSegment(x, z) {
+    const dTop = Math.abs(z - (-0.7));
+    const dBot = Math.abs(z - 0.7);
+    const dLeft = Math.abs(x - (-0.7));
+    
+    if (dTop < 0.3 && x > -0.9) return 'top';
+    if (dBot < 0.3 && x > -0.9) return 'bottom';
+    if (dLeft < 0.3) return 'left';
+    return 'top'; // default
+  }
+  
+  // Simple euclidean as fallback
+  return Math.sqrt((px - hx) ** 2 + (pz - hz) ** 2) * 1.3;
+}
+
+// ============ ANIMATION ============
+function animate() {
+  requestAnimationFrame(animate);
+  
+  // Smooth camera
+  currentRotation.x += (targetRotation.x - currentRotation.x) * 0.05;
+  currentRotation.y += (targetRotation.y - currentRotation.y) * 0.05;
+  currentZoom += (targetZoom - currentZoom) * 0.05;
+  
+  camera.position.x = Math.sin(currentRotation.y) * Math.cos(currentRotation.x) * currentZoom;
+  camera.position.y = Math.sin(currentRotation.x) * currentZoom + 1.5;
+  camera.position.z = Math.cos(currentRotation.y) * Math.cos(currentRotation.x) * currentZoom;
+  camera.lookAt(0, 1.5, 0);
+  
+  // Drop zone animation
+  if (dropZoneMesh && dropZoneMesh.visible) {
+    dropZoneMesh.material.opacity = 0.3 + Math.sin(Date.now() * 0.005) * 0.2;
+    dropZoneMesh.rotation.z += 0.01;
+  }
+  
+  // Flame animation
+  if (flameMesh) {
+    flameMesh.scale.x = 1 + Math.sin(Date.now() * 0.01) * 0.1;
+    flameMesh.scale.y = 1 + Math.sin(Date.now() * 0.013) * 0.15;
+    if (flameLight) {
+      flameLight.intensity = 1.5 + Math.sin(Date.now() * 0.01) * 0.3;
+    }
+  }
+  
+  // Heat simulation
+  if (isHeating) {
+    updateHeatSimulation(0.016);
+  }
+  
+  renderer.render(scene, camera);
+}
+
+// ============ EVENTS ============
+function setupEvents() {
+  const canvas = renderer.domElement;
+  
+  // Mouse orbit
+  canvas.addEventListener('mousedown', (e) => {
+    if (e.button === 0 || e.button === 2) {
+      isDragging = true;
+      previousMouse.x = e.clientX;
+      previousMouse.y = e.clientY;
+    }
+  });
+  
+  canvas.addEventListener('mousemove', (e) => {
+    if (isDragging) {
+      const dx = e.clientX - previousMouse.x;
+      const dy = e.clientY - previousMouse.y;
+      targetRotation.y -= dx * 0.005;
+      targetRotation.x = Math.max(-0.5, Math.min(1.2, targetRotation.x + dy * 0.005));
+      previousMouse.x = e.clientX;
+      previousMouse.y = e.clientY;
+    }
+  });
+  
+  canvas.addEventListener('mouseup', () => { isDragging = false; });
+  canvas.addEventListener('mouseleave', () => { isDragging = false; });
+  
+  // Zoom with wheel
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    targetZoom = Math.max(3, Math.min(12, targetZoom + e.deltaY * 0.005));
+  }, { passive: false });
+  
+  // Touch support
+  let touchStart = null;
+  let touchDist = null;
+  
+  canvas.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1) {
+      touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    } else if (e.touches.length === 2) {
+      touchDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+    }
+  });
+  
+  canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    if (e.touches.length === 1 && touchStart) {
+      const dx = e.touches[0].clientX - touchStart.x;
+      const dy = e.touches[0].clientY - touchStart.y;
+      targetRotation.y -= dx * 0.005;
+      targetRotation.x = Math.max(-0.5, Math.min(1.2, targetRotation.x + dy * 0.005));
+      touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    } else if (e.touches.length === 2 && touchDist) {
+      const newDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      targetZoom = Math.max(3, Math.min(12, targetZoom - (newDist - touchDist) * 0.02));
+      touchDist = newDist;
+    }
+  }, { passive: false });
+  
+  canvas.addEventListener('touchend', () => { touchStart = null; touchDist = null; });
+  
+  // Drag and drop for plates
+  document.querySelectorAll('.plate-option').forEach(el => {
+    el.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('plate', el.dataset.plate);
+    });
+  });
+  
+  // Sticker drag
+  const stickerEl = document.getElementById('sticker-drag');
+  if (stickerEl) {
+    stickerEl.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('item', 'sticker');
+    });
+  }
+  
+  // Candle drag
+  const candleEl = document.getElementById('candle-drag');
+  if (candleEl) {
+    candleEl.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('item', 'candle');
+    });
+  }
+  
+  canvas.addEventListener('dragover', (e) => { e.preventDefault(); });
+  
+  canvas.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const plateType = e.dataTransfer.getData('plate');
+    const item = e.dataTransfer.getData('item');
+    
+    if (plateType && currentStep === 0) {
+      handlePlateDrop(plateType);
+    } else if (item === 'sticker' && currentStep === 1) {
+      handleStickerDrop();
+    } else if (item === 'candle' && currentStep === 2) {
+      handleCandleDrop();
+    }
+  });
+  
+  // Click-based drop alternatives (for mobile)
+  document.querySelectorAll('.plate-option').forEach(el => {
+    el.addEventListener('click', () => {
+      if (currentStep === 0) handlePlateDrop(el.dataset.plate);
+    });
+  });
+  
+  if (stickerEl) stickerEl.addEventListener('click', () => { if (currentStep === 1) handleStickerDrop(); });
+  if (candleEl) candleEl.addEventListener('click', () => { if (currentStep === 2) handleCandleDrop(); });
+  
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+}
+
+// ============ STEP HANDLERS ============
+function handlePlateDrop(type) {
+  currentPlate = type;
+  dropZoneMesh.visible = false;
+  createCopperPlate(type);
+  
+  document.getElementById('side-panel').style.display = 'none';
+  
+  currentStep = 1;
+  updateStepDots();
+  updateGuide('구리판의 윗면에 열 변색 붙임딱지를 붙여 주세요.\n붙임딱지를 구리판으로 드래그해 주세요.');
+  document.getElementById('sticker-panel').style.display = 'block';
+}
+
+function handleStickerDrop() {
+  createSticker();
+  document.getElementById('sticker-panel').style.display = 'none';
+  
+  currentStep = 2;
+  updateStepDots();
+  updateGuide('초를 스탠드 아래로 드래그해 주세요.\n구리판의 한쪽 끝을 가열합니다.');
+  document.getElementById('candle-panel').style.display = 'block';
+}
+
+function handleCandleDrop() {
+  document.getElementById('candle-panel').style.display = 'none';
+  
+  // Place candle and start first heating
+  startHeating('end');
+}
+
+function startHeating(point) {
+  heatingPhase = point;
+  
+  // Determine heat source position
+  let cx, cz;
+  if (currentPlate === 'bar') {
+    if (point === 'end') {
+      cx = plateGroup.position.x + 1.3;
+      cz = plateGroup.position.z;
+    } else {
+      cx = plateGroup.position.x;
+      cz = plateGroup.position.z;
+    }
+  } else if (currentPlate === 'square') {
+    if (point === 'end') {
+      cx = plateGroup.position.x + 0.8;
+      cz = plateGroup.position.z;
+    } else {
+      cx = plateGroup.position.x;
+      cz = plateGroup.position.z;
+    }
+  } else { // c-shape
+    if (point === 'end') {
+      cx = plateGroup.position.x + 0.8;
+      cz = plateGroup.position.z - 0.7;
+    } else {
+      cx = plateGroup.position.x - 0.7;
+      cz = plateGroup.position.z;
+    }
+  }
+  
+  heatSourcePos = { x: cx, z: cz };
+  
+  // Remove old candle
+  if (candleGroup) {
+    scene.remove(candleGroup);
+    candleGroup = null;
+  }
+  
+  // Place candle below heat point
+  buildTripodAndCandle(cx, cz - 0.3);
+  
+  // Reset sticker colors
+  resetStickerColors();
+  
+  heatTime = 0;
+  isHeating = true;
+  
+  if (point === 'end') {
+    updateGuide('🔥 구리판의 한쪽 끝을 초로 가열하고 있어요.\n열 변색 붙임딱지의 색깔 변화를 관찰해 보세요!');
+  } else {
+    updateGuide('🔥 구리판의 가운데를 초로 가열하고 있어요.\n열 변색 붙임딱지의 색깔 변화를 관찰해 보세요!');
+  }
+  
+  document.getElementById('next-btn').style.display = 'none';
+  document.getElementById('heat-point-panel').style.display = 'none';
+}
+
+function resetStickerColors() {
+  stickerMaterials.forEach(sm => {
+    const colors = sm.geo.attributes.color;
+    const count = sm.geo.attributes.position.count;
+    for (let i = 0; i < count; i++) {
+      colors.setXYZ(i, 0.91, 0.27, 0.47);
+    }
+    colors.needsUpdate = true;
+  });
+}
+
+function showNextButton() {
+  document.getElementById('next-btn').style.display = 'block';
+}
+
+function nextStep() {
+  if (currentStep === 2) {
+    // After first heating (end), move to center heating
+    currentStep = 3;
+    updateStepDots();
+    updateGuide('이번에는 구리판의 가운데 부분을 초로 가열해 봅시다.');
+    document.getElementById('next-btn').style.display = 'none';
+    
+    // Show heat point selector or auto-start center heating
+    setTimeout(() => {
+      startHeating('center');
+    }, 1500);
+    
+  } else if (currentStep === 3) {
+    // After center heating, show summary
+    currentStep = 4;
+    updateStepDots();
+    document.getElementById('next-btn').style.display = 'none';
+    document.getElementById('summary-overlay').style.display = 'flex';
+  }
+}
+
+function selectHeatPoint(point) {
+  startHeating(point);
+}
+
+function updateGuide(text) {
+  const bubble = document.getElementById('guide-bubble');
+  bubble.style.opacity = '0';
+  setTimeout(() => {
+    bubble.textContent = text;
+    bubble.style.opacity = '1';
+  }, 300);
+}
+
+function updateStepDots() {
+  for (let i = 1; i <= 4; i++) {
+    const dot = document.getElementById('dot-' + i);
+    dot.className = 'step-dot';
+    if (i < currentStep + 1) dot.classList.add('completed');
+    if (i === currentStep + 1) dot.classList.add('active');
+  }
+}
+
+// ============ CONTROLS ============
+function zoomIn() { targetZoom = Math.max(3, targetZoom - 1); }
+function zoomOut() { targetZoom = Math.min(12, targetZoom + 1); }
+function resetView() { 
+  targetRotation = { x: 0.3, y: -0.5 }; 
+  targetZoom = 6; 
+}
+
+function resetExperiment() {
+  // Remove 3D objects
+  if (plateGroup) { scene.remove(plateGroup); plateGroup = null; }
+  if (stickerGroup) { scene.remove(stickerGroup); stickerGroup = null; }
+  if (candleGroup) { scene.remove(candleGroup); candleGroup = null; }
+  
+  plateMesh = null;
+  stickerMeshes = [];
+  stickerMaterials = [];
+  flameMesh = null;
+  flameLight = null;
+  
+  currentStep = 0;
+  currentPlate = null;
+  heatingPhase = null;
+  isHeating = false;
+  heatTime = 0;
+  heatSourcePos = null;
+  
+  // Reset UI
+  document.getElementById('side-panel').style.display = 'flex';
+  document.getElementById('sticker-panel').style.display = 'none';
+  document.getElementById('candle-panel').style.display = 'none';
+  document.getElementById('heat-point-panel').style.display = 'none';
+  document.getElementById('next-btn').style.display = 'none';
+  document.getElementById('summary-overlay').style.display = 'none';
+  
+  dropZoneMesh.visible = true;
+  
+  updateStepDots();
+  updateGuide('세 가지 모양의 구리판 중 하나를 골라 스탠드로 드래그해 주세요.');
+  resetView();
+}
+
+// ============ START ============
+init();
+</script>
+</body>
+</html>
