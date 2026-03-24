@@ -1,0 +1,1860 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>열의 이동 가상실험실 - 5학년 2학기</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Nanum+Round+Square:wght@400;700;800;900&family=Nanum+Gothic:wght@400;700;800&display=swap');
+
+  :root {
+    --primary: #2563EB;
+    --primary-light: #60A5FA;
+    --accent: #F59E0B;
+    --accent-light: #FCD34D;
+    --bg-dark: #0F172A;
+    --bg-mid: #1E293B;
+    --bg-card: #243047;
+    --text-main: #F1F5F9;
+    --text-sub: #94A3B8;
+    --hot-color: #FFFFFF;
+    --cold-color: #E53E3E;
+    --border: rgba(96,165,250,0.25);
+    --shadow: 0 8px 32px rgba(0,0,0,0.4);
+    --green: #10B981;
+    --purple: #8B5CF6;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Nanum Round Square', 'Nanum Gothic', sans-serif;
+    background: var(--bg-dark);
+    color: var(--text-main);
+    min-height: 100vh;
+    overflow-x: hidden;
+    background-image:
+      radial-gradient(ellipse at 20% 50%, rgba(37,99,235,0.12) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 20%, rgba(139,92,246,0.1) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 90%, rgba(245,158,11,0.08) 0%, transparent 50%);
+  }
+
+  /* ===== HEADER ===== */
+  .header {
+    background: linear-gradient(135deg, #1a2744 0%, #0f172a 100%);
+    border-bottom: 2px solid var(--border);
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+  .header-badge {
+    background: linear-gradient(135deg, var(--primary), var(--purple));
+    border-radius: 12px;
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .header-title {
+    font-size: 20px;
+    font-weight: 900;
+    background: linear-gradient(90deg, #60A5FA, #A78BFA, #34D399);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .header-sub {
+    font-size: 13px;
+    color: var(--text-sub);
+    margin-left: auto;
+  }
+
+  /* ===== STEP PROGRESS ===== */
+  .progress-wrap {
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    gap: 0;
+    overflow-x: auto;
+    background: rgba(30,41,59,0.5);
+    border-bottom: 1px solid var(--border);
+  }
+  .step-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 80px;
+    position: relative;
+    cursor: pointer;
+    transition: opacity 0.3s;
+  }
+  .step-item:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 18px;
+    right: -50%;
+    width: 100%;
+    height: 2px;
+    background: var(--border);
+    z-index: 0;
+  }
+  .step-item.active:not(:last-child)::after,
+  .step-item.done:not(:last-child)::after {
+    background: linear-gradient(90deg, var(--primary-light), var(--primary));
+  }
+  .step-num {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 900;
+    background: var(--bg-mid);
+    z-index: 1;
+    position: relative;
+    transition: all 0.3s;
+  }
+  .step-item.active .step-num {
+    background: linear-gradient(135deg, var(--primary), var(--purple));
+    border-color: var(--primary-light);
+    box-shadow: 0 0 15px rgba(96,165,250,0.5);
+  }
+  .step-item.done .step-num {
+    background: var(--green);
+    border-color: var(--green);
+  }
+  .step-label {
+    font-size: 11px;
+    color: var(--text-sub);
+    text-align: center;
+    line-height: 1.3;
+  }
+  .step-item.active .step-label { color: var(--primary-light); font-weight: 800; }
+  .step-item.done .step-label { color: var(--green); }
+
+  /* ===== MAIN LAYOUT ===== */
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 0;
+    min-height: calc(100vh - 140px);
+  }
+
+  /* ===== LAB AREA ===== */
+  .lab-area {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .instruction-box {
+    background: linear-gradient(135deg, rgba(37,99,235,0.15), rgba(139,92,246,0.1));
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px 20px;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .instr-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--primary), var(--purple));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+  .instr-text h3 {
+    font-size: 15px;
+    font-weight: 900;
+    color: var(--primary-light);
+    margin-bottom: 4px;
+  }
+  .instr-text p {
+    font-size: 13px;
+    color: var(--text-sub);
+    line-height: 1.6;
+  }
+  .instr-text strong { color: var(--accent-light); }
+
+  /* ===== 3D SCENE ===== */
+  .scene-wrap {
+    background: linear-gradient(160deg, #162035 0%, #0d1b2e 100%);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 30px;
+    position: relative;
+    overflow: hidden;
+    min-height: 480px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .scene-wrap::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 30% 60%, rgba(37,99,235,0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 70% 30%, rgba(245,158,11,0.06) 0%, transparent 40%);
+    pointer-events: none;
+  }
+
+  /* Grid floor */
+  .lab-floor {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%) rotateX(60deg) translateZ(-10px);
+    width: 700px;
+    height: 300px;
+    background:
+      linear-gradient(rgba(96,165,250,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(96,165,250,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    border: 1px solid rgba(96,165,250,0.1);
+    border-radius: 4px;
+    transform-style: preserve-3d;
+  }
+
+  .scene-inner {
+    position: relative;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+    z-index: 2;
+  }
+
+  /* ===== TOOLBAR (stickers source) ===== */
+  .toolbar {
+    background: rgba(30,41,59,0.8);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    backdrop-filter: blur(8px);
+    width: 100%;
+    max-width: 680px;
+  }
+  .toolbar-label {
+    font-size: 12px;
+    color: var(--text-sub);
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .sticker-source {
+    width: 180px;
+    height: 28px;
+    border-radius: 6px;
+    cursor: grab;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 800;
+    color: white;
+    border: 2px dashed rgba(255,255,255,0.4);
+    background: linear-gradient(90deg,
+      #E53E3E 0%, #E53E3E 20%,
+      #E86A3E 20%, #E86A3E 40%,
+      #E53E3E 40%, #E53E3E 60%,
+      #E86A3E 60%, #E86A3E 80%,
+      #E53E3E 80%, #E53E3E 100%
+    );
+    user-select: none;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .sticker-source::after {
+    content: '🌡️ 열 변색 붙임딱지';
+    font-size: 10px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+  }
+  .sticker-source:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 15px rgba(229,62,62,0.5);
+  }
+  .sticker-source:active { cursor: grabbing; }
+  .sticker-source.used { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+
+  /* ===== COPPER PLATES AREA ===== */
+  .plates-row {
+    display: flex;
+    gap: 40px;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 10px 0;
+  }
+
+  .plate-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+  }
+  .plate-name {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--text-sub);
+    text-align: center;
+    letter-spacing: 0.5px;
+  }
+
+  /* ===== 3D PLATE (CSS 3D) ===== */
+  .plate-3d {
+    position: relative;
+    transform-style: preserve-3d;
+    transform: rotateX(20deg) rotateY(-8deg);
+    transition: transform 0.4s ease;
+    cursor: pointer;
+  }
+  .plate-3d:hover {
+    transform: rotateX(18deg) rotateY(-6deg) scale(1.03);
+  }
+
+  /* Stand */
+  .stand {
+    width: 12px;
+    height: 70px;
+    background: linear-gradient(90deg, #8a9bb0, #c0cfe0, #8a9bb0);
+    border-radius: 3px;
+    position: absolute;
+    bottom: -72px;
+    left: 50%;
+    transform: translateX(-50%);
+    box-shadow: 2px 2px 6px rgba(0,0,0,0.5);
+  }
+  .stand::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 8px;
+    background: linear-gradient(90deg, #8a9bb0, #c0cfe0, #8a9bb0);
+    border-radius: 4px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+  }
+
+  /* === Long plate === */
+  .plate-long .face-top {
+    width: 200px;
+    height: 26px;
+    background: linear-gradient(180deg, #b87333 0%, #cd8844 50%, #a0632a 100%);
+    position: relative;
+    transform: rotateX(0deg) translateZ(8px);
+    border-radius: 3px 3px 0 0;
+  }
+  .plate-long .face-front {
+    width: 200px;
+    height: 16px;
+    background: linear-gradient(180deg, #cd8844 0%, #8b5320 100%);
+    transform: rotateX(-90deg) translateZ(0px);
+    position: absolute;
+    top: 0;
+    transform-origin: top;
+    transform: rotateX(-90deg);
+    margin-top: 26px;
+  }
+  .plate-long .face-right {
+    width: 16px;
+    height: 26px;
+    background: linear-gradient(90deg, #8b5320 0%, #a0632a 100%);
+    position: absolute;
+    right: -16px;
+    top: 0;
+    transform: rotateY(90deg);
+    transform-origin: left;
+  }
+
+  /* === Square plate === */
+  .plate-square {
+    width: 120px;
+    height: 120px;
+    position: relative;
+    transform-style: preserve-3d;
+  }
+
+  /* === L/D shape plate === */
+  .plate-d {
+    position: relative;
+    transform-style: preserve-3d;
+  }
+
+  /* Generic copper surface styling */
+  .copper-top {
+    background: linear-gradient(135deg, #cd8844 0%, #b87333 30%, #e6a050 50%, #b87333 70%, #8b5320 100%);
+    position: relative;
+    border-radius: 2px;
+  }
+
+  /* Sticker overlay on plate */
+  .sticker-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 2px;
+    display: none;
+    overflow: hidden;
+    z-index: 5;
+  }
+  .sticker-overlay.attached {
+    display: block;
+  }
+  .sticker-cell {
+    position: absolute;
+    background: #E53E3E;
+    transition: background 1.2s ease;
+    border-radius: 1px;
+  }
+  .sticker-cell.hot { background: #FFFFFF !important; }
+  .sticker-cell.warm { background: #f97316 !important; }
+  .sticker-cell.heating { background: #fbbf24 !important; }
+
+  /* Drop zone highlight */
+  .plate-drop-zone {
+    position: absolute;
+    inset: 0;
+    border: 2px dashed transparent;
+    border-radius: 4px;
+    transition: all 0.3s;
+    z-index: 10;
+  }
+  .plate-drop-zone.drag-over {
+    border-color: var(--accent-light);
+    background: rgba(245,158,11,0.15);
+    box-shadow: 0 0 20px rgba(245,158,11,0.4);
+  }
+  .check-mark {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 20px;
+    height: 20px;
+    background: var(--green);
+    border-radius: 50%;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    z-index: 20;
+    box-shadow: 0 2px 8px rgba(16,185,129,0.5);
+  }
+  .check-mark.show { display: flex; }
+
+  /* ===== CANDLE ===== */
+  .candle-group {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: all 0.5s ease;
+    z-index: 15;
+  }
+  .candle-body {
+    width: 20px;
+    height: 50px;
+    background: linear-gradient(90deg, #fef3c7, #fde68a, #fef3c7);
+    border-radius: 3px 3px 0 0;
+    position: relative;
+    box-shadow: 2px 2px 8px rgba(0,0,0,0.4);
+  }
+  .candle-wick {
+    width: 2px;
+    height: 16px;
+    background: #374151;
+    position: absolute;
+    top: -16px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  .flame {
+    width: 14px;
+    height: 24px;
+    position: absolute;
+    top: -40px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: none;
+  }
+  .flame.lit { display: block; }
+  .flame-inner {
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(ellipse at 50% 80%, #fff 0%, #fde68a 30%, #f97316 60%, #ef4444 85%, transparent 100%);
+    border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+    animation: flicker 0.8s ease-in-out infinite alternate;
+  }
+  @keyframes flicker {
+    0% { transform: scaleX(1) scaleY(1) rotate(-2deg); opacity: 0.9; }
+    50% { transform: scaleX(0.9) scaleY(1.1) rotate(1deg); opacity: 1; }
+    100% { transform: scaleX(1.1) scaleY(0.95) rotate(2deg); opacity: 0.85; }
+  }
+  .heat-glow {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    background: radial-gradient(ellipse, rgba(251,191,36,0.5) 0%, transparent 70%);
+    border-radius: 50%;
+    top: -50px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: none;
+    animation: glow-pulse 1s ease-in-out infinite alternate;
+  }
+  .flame.lit ~ .heat-glow { display: block; }
+  @keyframes glow-pulse {
+    0% { transform: translateX(-50%) scale(1); opacity: 0.7; }
+    100% { transform: translateX(-50%) scale(1.3); opacity: 0.4; }
+  }
+
+  /* Draggable candle */
+  .candle-draggable {
+    cursor: grab;
+    user-select: none;
+  }
+  .candle-draggable:active { cursor: grabbing; }
+  .candle-draggable.placed { position: absolute; cursor: default; }
+
+  /* ===== SIDE PANEL ===== */
+  .side-panel {
+    background: rgba(22,32,53,0.95);
+    border-left: 1px solid var(--border);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow-y: auto;
+  }
+  .panel-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+  }
+  .panel-title {
+    font-size: 12px;
+    font-weight: 900;
+    color: var(--text-sub);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .panel-title::before {
+    content: '';
+    width: 3px;
+    height: 14px;
+    border-radius: 2px;
+    background: var(--primary-light);
+    flex-shrink: 0;
+  }
+
+  /* Status indicators */
+  .status-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: rgba(15,23,42,0.5);
+    margin-bottom: 6px;
+    font-size: 12px;
+  }
+  .status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--text-sub);
+    transition: all 0.5s;
+  }
+  .status-dot.active { background: var(--green); box-shadow: 0 0 8px var(--green); animation: dot-pulse 1.5s ease infinite; }
+  @keyframes dot-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.3); }
+  }
+  .status-dot.done { background: var(--green); }
+  .status-dot.pending { background: #475569; }
+
+  /* Temp display */
+  .temp-bar {
+    margin-top: 6px;
+  }
+  .temp-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-sub);
+    margin-bottom: 4px;
+  }
+  .temp-track {
+    height: 8px;
+    background: rgba(15,23,42,0.6);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .temp-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #3B82F6, #F59E0B, #EF4444);
+    width: 0%;
+    transition: width 0.5s ease;
+  }
+  .temp-val {
+    font-size: 11px;
+    color: var(--accent-light);
+    text-align: right;
+    margin-top: 2px;
+  }
+
+  /* Legend */
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+  .legend-color {
+    width: 28px;
+    height: 16px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+
+  /* ===== CONTROL BUTTONS ===== */
+  .btn {
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    font-family: 'Nanum Round Square', sans-serif;
+    font-weight: 900;
+    font-size: 13px;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255,255,255,0.1);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .btn:hover::after { opacity: 1; }
+  .btn:active { transform: scale(0.97); }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--primary), var(--purple));
+    color: white;
+    box-shadow: 0 4px 15px rgba(37,99,235,0.4);
+  }
+  .btn-accent {
+    background: linear-gradient(135deg, var(--accent), #f97316);
+    color: white;
+    box-shadow: 0 4px 15px rgba(245,158,11,0.4);
+  }
+  .btn-green {
+    background: linear-gradient(135deg, var(--green), #059669);
+    color: white;
+    box-shadow: 0 4px 15px rgba(16,185,129,0.4);
+  }
+  .btn-ghost {
+    background: rgba(255,255,255,0.07);
+    color: var(--text-sub);
+    border: 1px solid var(--border);
+  }
+  .btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+  }
+  .btn:disabled::after { display: none; }
+
+  .btn-full { width: 100%; }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* ===== OBSERVATION LOG ===== */
+  .obs-log {
+    max-height: 180px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  .obs-entry {
+    background: rgba(15,23,42,0.4);
+    border-left: 3px solid var(--primary-light);
+    padding: 8px 12px;
+    border-radius: 0 6px 6px 0;
+    margin-bottom: 6px;
+    font-size: 11px;
+    color: var(--text-sub);
+    line-height: 1.5;
+    animation: slide-in 0.3s ease;
+  }
+  .obs-entry .time { color: var(--accent-light); font-weight: 700; margin-right: 6px; }
+  @keyframes slide-in {
+    from { opacity: 0; transform: translateX(-10px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  /* ===== RESULT SCREEN ===== */
+  .result-screen {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(8px);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+  .result-screen.show { display: flex; }
+  .result-card {
+    background: linear-gradient(160deg, #162035, #0d1b2e);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 36px;
+    max-width: 700px;
+    width: 90%;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 80px rgba(0,0,0,0.7);
+  }
+  .result-header {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+  .result-trophy { font-size: 56px; margin-bottom: 12px; animation: bounce 1s ease infinite alternate; }
+  @keyframes bounce {
+    from { transform: translateY(0) rotate(-5deg); }
+    to { transform: translateY(-10px) rotate(5deg); }
+  }
+  .result-header h2 {
+    font-size: 26px;
+    font-weight: 900;
+    background: linear-gradient(90deg, #60A5FA, #A78BFA, #34D399);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+  }
+  .result-header p { font-size: 14px; color: var(--text-sub); }
+
+  .conclusion-box {
+    background: linear-gradient(135deg, rgba(37,99,235,0.15), rgba(139,92,246,0.1));
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .conclusion-box h3 {
+    font-size: 14px;
+    font-weight: 900;
+    color: var(--primary-light);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .conclusion-box p {
+    font-size: 13px;
+    color: var(--text-main);
+    line-height: 1.8;
+  }
+  .conclusion-box strong { color: var(--accent-light); }
+
+  .plates-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .plate-result {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    text-align: center;
+  }
+  .plate-result .plate-icon { font-size: 28px; margin-bottom: 8px; }
+  .plate-result h4 { font-size: 12px; font-weight: 900; color: var(--text-main); margin-bottom: 6px; }
+  .plate-result p { font-size: 11px; color: var(--text-sub); line-height: 1.5; }
+
+  .keyword-box {
+    background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(249,115,22,0.1));
+    border: 1px solid rgba(245,158,11,0.3);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+  .keyword-box h3 { font-size: 14px; font-weight: 900; color: var(--accent-light); margin-bottom: 10px; }
+  .keywords { display: flex; flex-wrap: wrap; gap: 8px; }
+  .keyword-tag {
+    background: rgba(245,158,11,0.2);
+    border: 1px solid rgba(245,158,11,0.4);
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--accent-light);
+  }
+
+  /* ===== HEAT POSITION SELECTOR ===== */
+  .heat-selector {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 10px;
+  }
+  .heat-selector h4 { font-size: 12px; color: var(--text-sub); font-weight: 800; margin-bottom: 8px; }
+  .heat-btns { display: flex; gap: 6px; }
+  .heat-pos-btn {
+    flex: 1;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: rgba(15,23,42,0.5);
+    color: var(--text-sub);
+    font-size: 11px;
+    font-weight: 800;
+    cursor: pointer;
+    font-family: 'Nanum Round Square', sans-serif;
+    transition: all 0.2s;
+  }
+  .heat-pos-btn.active {
+    background: linear-gradient(135deg, #f97316, #ef4444);
+    border-color: #f97316;
+    color: white;
+  }
+
+  /* ===== STEP PANELS ===== */
+  .step-panel { display: none; }
+  .step-panel.active { display: block; }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: linear-gradient(135deg, var(--primary), var(--purple));
+    color: white;
+    padding: 14px 28px;
+    border-radius: 40px;
+    font-size: 14px;
+    font-weight: 800;
+    box-shadow: var(--shadow);
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 300;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* ===== SVG PLATES ===== */
+  .svg-plate-wrap {
+    position: relative;
+    display: inline-block;
+  }
+
+  .plate-label-3d {
+    font-size: 10px;
+    color: var(--text-sub);
+    text-align: center;
+    margin-top: 4px;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .main { grid-template-columns: 1fr; }
+    .side-panel { border-left: none; border-top: 1px solid var(--border); }
+    .plates-row { gap: 20px; }
+  }
+
+  /* Heat wave animation */
+  @keyframes heat-wave {
+    0% { transform: translateY(0) scaleX(1); opacity: 0.6; }
+    50% { transform: translateY(-8px) scaleX(1.1); opacity: 0.3; }
+    100% { transform: translateY(-16px) scaleX(0.9); opacity: 0; }
+  }
+  .heat-wave {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: radial-gradient(ellipse, rgba(251,191,36,0.6) 0%, transparent 70%);
+    animation: heat-wave 1s ease-out infinite;
+    pointer-events: none;
+  }
+
+  .highlight-zone {
+    position: absolute;
+    background: rgba(239,68,68,0.3);
+    border-radius: 50%;
+    animation: heat-pulse 1s ease-in-out infinite;
+    pointer-events: none;
+  }
+  @keyframes heat-pulse {
+    0%, 100% { transform: scale(1); opacity: 0.5; }
+    50% { transform: scale(1.2); opacity: 0.8; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-badge">🔬 가상실험실</div>
+  <div class="header-title">고체에서 열의 이동 관찰하기</div>
+  <div class="header-sub">5학년 2학기 · 2. 열과 우리 생활</div>
+</div>
+
+<!-- STEP PROGRESS -->
+<div class="progress-wrap" id="stepProgress">
+  <div class="step-item active" data-step="1" onclick="goToStep(1)">
+    <div class="step-num">1</div>
+    <div class="step-label">열 변색<br>붙임딱지 붙이기</div>
+  </div>
+  <div class="step-item" data-step="2" onclick="goToStep(2)">
+    <div class="step-num">2</div>
+    <div class="step-label">끝부분<br>가열하기</div>
+  </div>
+  <div class="step-item" data-step="3" onclick="goToStep(3)">
+    <div class="step-num">3</div>
+    <div class="step-label">가운데<br>가열하기</div>
+  </div>
+  <div class="step-item" data-step="4" onclick="goToStep(4)">
+    <div class="step-num">4</div>
+    <div class="step-label">관찰 결과<br>정리하기</div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <!-- LAB AREA -->
+  <div class="lab-area">
+
+    <!-- Instruction -->
+    <div class="instruction-box" id="instrBox">
+      <div class="instr-icon" id="instrIcon">📌</div>
+      <div class="instr-text">
+        <h3 id="instrTitle">탐구 과정 1 — 열 변색 붙임딱지 붙이기</h3>
+        <p id="instrDesc">아래 도구함에서 <strong>열 변색 붙임딱지</strong>를 드래그하여 각 구리판 위에 올려놓으세요. 세 개의 구리판 모두에 붙임딱지를 붙여야 다음 단계로 진행할 수 있습니다.</p>
+      </div>
+    </div>
+
+    <!-- SCENE -->
+    <div class="scene-wrap" id="sceneWrap">
+      <div class="lab-floor"></div>
+      <div class="scene-inner">
+
+        <!-- STEP 1: Toolbar with stickers -->
+        <div class="toolbar" id="toolbarStep1">
+          <span class="toolbar-label">🧰 도구함</span>
+          <div class="sticker-source" id="stickerSource1"
+               draggable="true"
+               ondragstart="startStickerDrag(event, 'long')"
+               ondragend="endDrag(event)">
+          </div>
+          <div class="sticker-source" id="stickerSource2"
+               draggable="true"
+               ondragstart="startStickerDrag(event, 'square')"
+               ondragend="endDrag(event)">
+          </div>
+          <div class="sticker-source" id="stickerSource3"
+               draggable="true"
+               ondragstart="startStickerDrag(event, 'd')"
+               ondragend="endDrag(event)">
+          </div>
+          <span style="font-size:11px;color:var(--text-sub);margin-left:auto;">← 드래그하여 붙여보세요</span>
+        </div>
+
+        <!-- PLATES -->
+        <div class="plates-row" id="platesRow">
+
+          <!-- 1) Long plate -->
+          <div class="plate-container" id="plateContainerLong">
+            <div class="plate-name">길게 자른 구리판</div>
+            <div class="svg-plate-wrap" id="plateWrapLong">
+              <!-- 3D SVG long plate -->
+              <svg width="210" height="80" viewBox="0 0 210 80" style="overflow:visible;filter:drop-shadow(3px 6px 12px rgba(0,0,0,0.6))">
+                <defs>
+                  <linearGradient id="copperTop" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="#e8a050"/>
+                    <stop offset="40%" stop-color="#cd8844"/>
+                    <stop offset="100%" stop-color="#9a6228"/>
+                  </linearGradient>
+                  <linearGradient id="copperSide" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="#cd8844"/>
+                    <stop offset="100%" stop-color="#6b3d12"/>
+                  </linearGradient>
+                  <linearGradient id="copperRight" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stop-color="#8b5320"/>
+                    <stop offset="100%" stop-color="#a0632a"/>
+                  </linearGradient>
+                </defs>
+                <!-- Side face -->
+                <polygon points="0,30 200,30 200,50 0,50" fill="url(#copperSide)"/>
+                <!-- Right face -->
+                <polygon points="200,10 210,20 210,40 200,30" fill="url(#copperRight)"/>
+                <!-- Top face -->
+                <polygon points="0,10 200,10 210,20 10,20" fill="url(#copperTop)"/>
+                <!-- Shine -->
+                <polygon points="0,10 60,10 70,20 10,20" fill="rgba(255,255,255,0.15)"/>
+              </svg>
+
+              <!-- Sticker overlay (positioned over top face of plate) -->
+              <div class="sticker-overlay" id="stickerLong"
+                   style="position:absolute;top:0;left:0;width:200px;height:20px;top:7px;left:2px;border-radius:2px;">
+              </div>
+
+              <!-- Drop zone -->
+              <div class="plate-drop-zone" id="dropLong"
+                   style="position:absolute;top:5px;left:0;width:205px;height:20px;"
+                   ondragover="allowDrop(event,'long')"
+                   ondragleave="leaveDrop(event,'long')"
+                   ondrop="dropSticker(event,'long')">
+              </div>
+
+              <!-- Check mark -->
+              <div class="check-mark" id="checkLong" style="top:0px;right:-5px;">✓</div>
+            </div>
+
+            <!-- Candle for long plate -->
+            <div id="candleLong" style="position:relative;margin-top:10px;display:none;">
+              <div class="candle-body" style="margin:0 auto;">
+                <div class="candle-wick"></div>
+                <div class="flame" id="flameLong">
+                  <div class="flame-inner"></div>
+                </div>
+                <div class="heat-glow"></div>
+              </div>
+            </div>
+
+            <!-- Stand -->
+            <div class="stand" style="position:relative;margin:0 auto;"></div>
+          </div>
+
+          <!-- 2) Square plate -->
+          <div class="plate-container" id="plateContainerSquare">
+            <div class="plate-name">정사각형 구리판</div>
+            <div class="svg-plate-wrap" id="plateWrapSquare">
+              <svg width="130" height="130" viewBox="0 0 130 130" style="overflow:visible;filter:drop-shadow(3px 6px 12px rgba(0,0,0,0.6))">
+                <!-- Side face -->
+                <polygon points="10,30 120,30 120,50 10,50" fill="url(#copperSide)"/>
+                <!-- Right face -->
+                <polygon points="120,10 130,20 130,40 120,30" fill="url(#copperRight)"/>
+                <!-- Top face -->
+                <polygon points="10,10 120,10 130,20 20,20" fill="url(#copperTop)"/>
+                <!-- Shine -->
+                <polygon points="10,10 50,10 60,20 20,20" fill="rgba(255,255,255,0.15)"/>
+              </svg>
+              <div class="sticker-overlay" id="stickerSquare"
+                   style="position:absolute;top:7px;left:12px;width:108px;height:16px;border-radius:2px;">
+              </div>
+              <div class="plate-drop-zone" id="dropSquare"
+                   style="position:absolute;top:5px;left:10px;width:120px;height:20px;"
+                   ondragover="allowDrop(event,'square')"
+                   ondragleave="leaveDrop(event,'square')"
+                   ondrop="dropSticker(event,'square')">
+              </div>
+              <div class="check-mark" id="checkSquare" style="top:0px;right:-5px;">✓</div>
+            </div>
+            <div id="candleSquare" style="position:relative;margin-top:10px;display:none;">
+              <div class="candle-body" style="margin:0 auto;">
+                <div class="candle-wick"></div>
+                <div class="flame" id="flameSquare"><div class="flame-inner"></div></div>
+                <div class="heat-glow"></div>
+              </div>
+            </div>
+            <div class="stand" style="position:relative;margin:0 auto;"></div>
+          </div>
+
+          <!-- 3) D-shape plate -->
+          <div class="plate-container" id="plateContainerD">
+            <div class="plate-name">ㄷ 모양 구리판</div>
+            <div class="svg-plate-wrap" id="plateWrapD" style="position:relative;">
+              <!-- D-shape: top bar + left bar + bottom bar -->
+              <svg width="150" height="130" viewBox="0 0 150 130" style="overflow:visible;filter:drop-shadow(3px 6px 12px rgba(0,0,0,0.6))">
+                <!-- ㄷ shape: top, left, bottom horizontal bars in 3D -->
+                <!-- TOP BAR -->
+                <polygon points="10,10 100,10 110,20 20,20" fill="url(#copperTop)"/>
+                <polygon points="10,10 100,10 100,26 10,26" fill="url(#copperSide)"/>
+                <polygon points="100,10 110,20 110,36 100,26" fill="url(#copperRight)"/>
+                <!-- LEFT BAR -->
+                <polygon points="10,10 26,10 36,20 20,20" fill="url(#copperTop)"/>
+                <polygon points="10,10 26,10 26,90 10,90" fill="url(#copperSide)"/>
+                <!-- BOTTOM BAR -->
+                <polygon points="10,74 100,74 110,84 20,84" fill="url(#copperTop)"/>
+                <polygon points="10,74 100,74 100,90 10,90" fill="url(#copperSide)"/>
+                <polygon points="100,74 110,84 110,100 100,90" fill="url(#copperRight)"/>
+                <!-- Shine -->
+                <polygon points="10,10 30,10 40,20 20,20" fill="rgba(255,255,255,0.12)"/>
+                <polygon points="10,74 30,74 40,84 20,84" fill="rgba(255,255,255,0.12)"/>
+              </svg>
+
+              <!-- Sticker overlays for ㄷ shape (3 segments) -->
+              <div id="stickerDTop" style="position:absolute;top:7px;left:12px;width:88px;height:14px;border-radius:2px;display:none;overflow:hidden;z-index:5;"></div>
+              <div id="stickerDLeft" style="position:absolute;top:7px;left:12px;width:14px;height:63px;border-radius:2px;display:none;overflow:hidden;z-index:5;"></div>
+              <div id="stickerDBot" style="position:absolute;top:70px;left:12px;width:88px;height:14px;border-radius:2px;display:none;overflow:hidden;z-index:5;"></div>
+
+              <div class="plate-drop-zone" id="dropD"
+                   style="position:absolute;top:5px;left:8px;width:100px;height:90px;"
+                   ondragover="allowDrop(event,'d')"
+                   ondragleave="leaveDrop(event,'d')"
+                   ondrop="dropSticker(event,'d')">
+              </div>
+              <div class="check-mark" id="checkD" style="top:0px;right:-5px;">✓</div>
+            </div>
+            <div id="candleD" style="position:relative;margin-top:10px;display:none;">
+              <div class="candle-body" style="margin:0 auto;">
+                <div class="candle-wick"></div>
+                <div class="flame" id="flameD"><div class="flame-inner"></div></div>
+                <div class="heat-glow"></div>
+              </div>
+            </div>
+            <div class="stand" style="position:relative;margin:0 auto;"></div>
+          </div>
+
+        </div><!-- /plates-row -->
+
+      </div><!-- /scene-inner -->
+    </div><!-- /scene-wrap -->
+
+  </div><!-- /lab-area -->
+
+  <!-- SIDE PANEL -->
+  <div class="side-panel">
+
+    <!-- Step 1 panel -->
+    <div class="panel-section step-panel active" id="sideStep1">
+      <div class="panel-title">진행 상태</div>
+      <div class="status-row">
+        <span>길게 자른 구리판</span>
+        <div class="status-dot pending" id="dotLong"></div>
+      </div>
+      <div class="status-row">
+        <span>정사각형 구리판</span>
+        <div class="status-dot pending" id="dotSquare"></div>
+      </div>
+      <div class="status-row">
+        <span>ㄷ 모양 구리판</span>
+        <div class="status-dot pending" id="dotD"></div>
+      </div>
+      <div style="margin-top:14px;">
+        <button class="btn btn-primary btn-full" id="step1NextBtn" onclick="goToStep(2)" disabled>
+          다음 단계로 →
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 2 panel -->
+    <div class="panel-section step-panel" id="sideStep2">
+      <div class="panel-title">가열 위치 선택</div>
+      <div class="heat-selector">
+        <h4>🕯️ 어디에 초를 놓을까요?</h4>
+        <div class="heat-btns">
+          <button class="heat-pos-btn active" id="heatEnd" onclick="setHeatPos('end')">끝부분</button>
+        </div>
+      </div>
+      <button class="btn btn-accent btn-full" id="heatBtn2" onclick="startHeating(2)">
+        🔥 가열 시작
+      </button>
+      <div style="margin-top:10px;">
+        <button class="btn btn-ghost btn-full" id="resetBtn2" onclick="resetHeating(2)" disabled>↺ 초기화</button>
+      </div>
+      <div style="margin-top:14px;">
+        <button class="btn btn-primary btn-full" id="step2NextBtn" onclick="goToStep(3)" disabled>
+          다음 단계로 →
+        </button>
+      </div>
+      <div class="temp-bar" style="margin-top:14px;">
+        <div class="temp-label"><span>온도 변화</span><span>끝부분 가열 중</span></div>
+        <div class="temp-track"><div class="temp-fill" id="tempFill2"></div></div>
+        <div class="temp-val" id="tempVal2">20°C</div>
+      </div>
+    </div>
+
+    <!-- Step 3 panel -->
+    <div class="panel-section step-panel" id="sideStep3">
+      <div class="panel-title">가열 위치 선택</div>
+      <div class="heat-selector">
+        <h4>🕯️ 어디에 초를 놓을까요?</h4>
+        <div class="heat-btns">
+          <button class="heat-pos-btn active" id="heatMid" onclick="setHeatPos('mid')">가운데</button>
+        </div>
+      </div>
+      <button class="btn btn-accent btn-full" id="heatBtn3" onclick="startHeating(3)">
+        🔥 가열 시작
+      </button>
+      <div style="margin-top:10px;">
+        <button class="btn btn-ghost btn-full" id="resetBtn3" onclick="resetHeating(3)" disabled>↺ 초기화</button>
+      </div>
+      <div style="margin-top:14px;">
+        <button class="btn btn-primary btn-full" id="step3NextBtn" onclick="goToStep(4)" disabled>
+          다음 단계로 →
+        </button>
+      </div>
+      <div class="temp-bar" style="margin-top:14px;">
+        <div class="temp-label"><span>온도 변화</span><span>가운데 가열 중</span></div>
+        <div class="temp-track"><div class="temp-fill" id="tempFill3"></div></div>
+        <div class="temp-val" id="tempVal3">20°C</div>
+      </div>
+    </div>
+
+    <!-- Step 4 panel -->
+    <div class="panel-section step-panel" id="sideStep4">
+      <div class="panel-title">🎓 학습 정리</div>
+      <p style="font-size:12px;color:var(--text-sub);line-height:1.7;margin-bottom:14px;">실험을 통해 관찰한 내용을 정리하고, 결과를 확인해 보세요!</p>
+      <button class="btn btn-green btn-full" onclick="showResult()">
+        📋 관찰 결과 보기
+      </button>
+    </div>
+
+    <!-- Legend (always visible) -->
+    <div class="panel-section">
+      <div class="panel-title">열 변색 붙임딱지 범례</div>
+      <div class="legend-item">
+        <div class="legend-color" style="background:#E53E3E;"></div>
+        <span style="font-size:12px;">다홍색 — 열이 전달되지 않은 부분 (낮은 온도)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background:linear-gradient(90deg,#E53E3E,#f97316);"></div>
+        <span style="font-size:12px;">주황색 — 열이 전달되는 중</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background:linear-gradient(90deg,#f97316,#fbbf24);"></div>
+        <span style="font-size:12px;">노란색 — 열이 도달하고 있음</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background:#FFFFFF;border:1px solid #475569;"></div>
+        <span style="font-size:12px;">흰색 — 열이 충분히 전달된 부분 (높은 온도)</span>
+      </div>
+    </div>
+
+    <!-- Observation log -->
+    <div class="panel-section">
+      <div class="panel-title">관찰 기록</div>
+      <div class="obs-log" id="obsLog">
+        <div class="obs-entry"><span class="time">시작</span>실험을 시작하세요. 열 변색 붙임딱지를 구리판에 붙여보세요!</div>
+      </div>
+    </div>
+
+  </div><!-- /side-panel -->
+</div><!-- /main -->
+
+<!-- RESULT SCREEN -->
+<div class="result-screen" id="resultScreen">
+  <div class="result-card">
+    <div class="result-header">
+      <div class="result-trophy">🏆</div>
+      <h2>실험 완료! 관찰 결과 정리</h2>
+      <p>고체에서 열의 이동 방식을 알아보았습니다.</p>
+    </div>
+
+    <div class="conclusion-box">
+      <h3>🔬 핵심 결론</h3>
+      <p>
+        고체에서 열은 <strong>가열된 부분에서 가열되지 않은 부분으로</strong> 이동합니다.<br>
+        이를 <strong>전도(傳導)</strong>라고 합니다. 열은 고체 물질을 따라 이동하기 때문에,
+        구리판의 모양에 따라 열이 이동하는 <strong>경로가 달라집니다.</strong>
+      </p>
+    </div>
+
+    <div class="plates-summary">
+      <div class="plate-result">
+        <div class="plate-icon">➡️</div>
+        <h4>길게 자른 구리판</h4>
+        <p>열이 한쪽 끝에서 반대쪽 끝으로 <strong>직선 방향</strong>으로 이동했습니다.</p>
+      </div>
+      <div class="plate-result">
+        <div class="plate-icon">⬛</div>
+        <h4>정사각형 구리판</h4>
+        <p>끝 가열 시 한쪽에서 퍼지고, 가운데 가열 시 <strong>사방으로</strong> 고르게 퍼졌습니다.</p>
+      </div>
+      <div class="plate-result">
+        <div class="plate-icon">🔲</div>
+        <h4>ㄷ 모양 구리판</h4>
+        <p>열이 구리판의 <strong>모양을 따라</strong> ㄷ 경로로 이동했습니다. (가운데는 비어있어 이동 못 함)</p>
+      </div>
+    </div>
+
+    <div class="conclusion-box" style="margin-bottom:16px;">
+      <h3>📌 실험에서 관찰한 것</h3>
+      <p>
+        ① 끝부분을 가열했을 때: 가열된 곳의 붙임딱지가 먼저 <strong>흰색</strong>으로 변하고,
+        점차 멀리 있는 부분도 흰색으로 변했습니다.<br><br>
+        ② 가운데를 가열했을 때: 가열된 가운데 부분부터 <strong>모든 방향</strong>으로
+        열이 고르게 퍼지며 붙임딱지가 흰색으로 변했습니다.<br><br>
+        ③ ㄷ 모양 구리판은 <strong>구리판이 있는 경로를 따라서만</strong> 열이 이동했습니다.
+      </p>
+    </div>
+
+    <div class="keyword-box">
+      <h3>🗝️ 오늘의 핵심 용어</h3>
+      <div class="keywords">
+        <span class="keyword-tag">전도</span>
+        <span class="keyword-tag">열의 이동</span>
+        <span class="keyword-tag">고체</span>
+        <span class="keyword-tag">열 변색 붙임딱지</span>
+        <span class="keyword-tag">온도 차이</span>
+        <span class="keyword-tag">구리</span>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeResult()">← 실험으로 돌아가기</button>
+      <button class="btn btn-primary" style="flex:1" onclick="restartAll()">🔄 처음부터 다시하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ========== STATE ==========
+const state = {
+  currentStep: 1,
+  stickersDone: { long: false, square: false, d: false },
+  step2Done: false,
+  step3Done: false,
+  heatPos: 'end',
+  heating: false,
+};
+
+// ========== STEP MANAGEMENT ==========
+function updateStepUI(step) {
+  // Update progress bar
+  const items = document.querySelectorAll('.step-item');
+  items.forEach((item, i) => {
+    const s = i + 1;
+    item.classList.remove('active', 'done');
+    if (s < step) item.classList.add('done');
+    else if (s === step) item.classList.add('active');
+  });
+
+  // Update step-panels in side
+  document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
+  const sidePanel = document.getElementById('sideStep' + step);
+  if (sidePanel) sidePanel.classList.add('active');
+
+  // Update instruction box
+  updateInstruction(step);
+
+  // Show/hide toolbar
+  document.getElementById('toolbarStep1').style.display = step === 1 ? 'flex' : 'none';
+}
+
+const instructions = {
+  1: {
+    icon: '📌',
+    title: '탐구 과정 1 — 열 변색 붙임딱지 붙이기',
+    desc: '아래 도구함에서 <strong>열 변색 붙임딱지</strong>를 드래그하여 각 구리판 위에 올려놓으세요. 세 개의 구리판 모두에 붙임딱지를 붙여야 다음 단계로 진행할 수 있습니다.'
+  },
+  2: {
+    icon: '🕯️',
+    title: '탐구 과정 2 — 끝부분 가열하기',
+    desc: '구리판의 <strong>끝부분</strong>을 초로 가열하면서 열 변색 붙임딱지의 색깔 변화를 관찰해 봅시다. 가열 시작 버튼을 눌러주세요!'
+  },
+  3: {
+    icon: '🔥',
+    title: '탐구 과정 3 — 가운데 가열하기',
+    desc: '이번엔 구리판의 <strong>가운데 부분</strong>을 초로 가열하면서 색깔 변화를 관찰해 봅시다. 끝부분과 어떻게 다른지 비교해 보세요!'
+  },
+  4: {
+    icon: '✏️',
+    title: '탐구 과정 4 — 관찰 결과 정리하기',
+    desc: '고체에서 열은 <strong>어떻게 이동</strong>하는지 관찰한 결과를 정리해 봅시다. 결과 보기 버튼을 눌러 실험 결론을 확인하세요!'
+  }
+};
+
+function updateInstruction(step) {
+  const instr = instructions[step];
+  if (!instr) return;
+  document.getElementById('instrIcon').textContent = instr.icon;
+  document.getElementById('instrTitle').textContent = instr.title;
+  document.getElementById('instrDesc').innerHTML = instr.desc;
+}
+
+function goToStep(step) {
+  if (step === 2 && !allStickersDone()) {
+    showToast('⚠️ 세 구리판 모두에 붙임딱지를 붙여주세요!');
+    return;
+  }
+  if (step === 3 && !state.step2Done) {
+    showToast('⚠️ 끝부분 가열 실험을 먼저 완료해주세요!');
+    return;
+  }
+  if (step === 4 && !state.step3Done) {
+    showToast('⚠️ 가운데 가열 실험을 먼저 완료해주세요!');
+    return;
+  }
+  state.currentStep = step;
+  updateStepUI(step);
+
+  if (step === 2) {
+    resetHeatingVisuals();
+    showCandles('end');
+  } else if (step === 3) {
+    resetHeatingVisuals();
+    showCandles('mid');
+  }
+}
+
+// ========== DRAG & DROP STICKERS ==========
+let draggingType = null;
+
+function startStickerDrag(e, type) {
+  draggingType = type;
+  e.dataTransfer.effectAllowed = 'copy';
+  e.target.style.opacity = '0.6';
+}
+
+function endDrag(e) {
+  e.target.style.opacity = '';
+  draggingType = null;
+}
+
+function allowDrop(e, plateId) {
+  e.preventDefault();
+  e.stopPropagation();
+  if (!state.stickersDone[plateId]) {
+    document.getElementById('drop' + cap(plateId)).classList.add('drag-over');
+  }
+}
+
+function leaveDrop(e, plateId) {
+  document.getElementById('drop' + cap(plateId)).classList.remove('drag-over');
+}
+
+function dropSticker(e, plateId) {
+  e.preventDefault();
+  document.getElementById('drop' + cap(plateId)).classList.remove('drag-over');
+
+  if (state.stickersDone[plateId]) {
+    showToast('이미 붙임딱지가 붙어있어요!');
+    return;
+  }
+
+  if (draggingType !== plateId) {
+    // Allow any sticker to go to any plate for simplicity
+  }
+
+  attachSticker(plateId);
+  draggingType = null;
+}
+
+function cap(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+function attachSticker(plateId) {
+  state.stickersDone[plateId] = true;
+
+  // Show sticker overlay
+  if (plateId === 'long') {
+    fillStickerOverlay('stickerLong', 200, 14, 'h', 0);
+  } else if (plateId === 'square') {
+    fillStickerOverlay('stickerSquare', 108, 12, 'h', 0);
+  } else if (plateId === 'd') {
+    // top bar
+    document.getElementById('stickerDTop').style.display = 'block';
+    document.getElementById('stickerDLeft').style.display = 'block';
+    document.getElementById('stickerDBot').style.display = 'block';
+    fillStickerOverlay('stickerDTop', 88, 12, 'h', 0);
+    fillStickerOverlay('stickerDLeft', 14, 63, 'v', 0);
+    fillStickerOverlay('stickerDBot', 88, 12, 'h', 0);
+  }
+
+  // Mark source as used
+  const srcMap = { long: 'stickerSource1', square: 'stickerSource2', d: 'stickerSource3' };
+  document.getElementById(srcMap[plateId]).classList.add('used');
+
+  // Show check mark
+  document.getElementById('check' + cap(plateId)).classList.add('show');
+
+  // Update dot
+  document.getElementById('dot' + cap(plateId)).className = 'status-dot done';
+
+  // Log
+  const names = { long: '길게 자른 구리판', square: '정사각형 구리판', d: 'ㄷ 모양 구리판' };
+  addLog(`${names[plateId]}에 열 변색 붙임딱지를 붙였습니다.`);
+  showToast(`✅ ${names[plateId]}에 붙임딱지 부착 완료!`);
+
+  if (allStickersDone()) {
+    document.getElementById('step1NextBtn').disabled = false;
+    showToast('🎉 모든 구리판에 붙임딱지를 붙였어요! 다음 단계로 이동하세요.');
+    addLog('모든 구리판에 열 변색 붙임딱지 부착 완료! 다음 단계로 진행하세요.');
+  }
+}
+
+function fillStickerOverlay(id, w, h, dir, startHeat) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.style.display = 'block';
+  el.style.width = w + 'px';
+  el.style.height = h + 'px';
+  el.innerHTML = '';
+  el.style.background = 'none';
+
+  if (dir === 'h') {
+    const cols = Math.ceil(w / 12);
+    for (let i = 0; i < cols; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'sticker-cell';
+      cell.style.left = (i * 12) + 'px';
+      cell.style.top = '0';
+      cell.style.width = Math.min(12, w - i*12) + 'px';
+      cell.style.height = h + 'px';
+      cell.style.background = '#E53E3E';
+      cell.dataset.idx = i;
+      el.appendChild(cell);
+    }
+  } else if (dir === 'v') {
+    const rows = Math.ceil(h / 12);
+    for (let i = 0; i < rows; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'sticker-cell';
+      cell.style.left = '0';
+      cell.style.top = (i * 12) + 'px';
+      cell.style.width = w + 'px';
+      cell.style.height = Math.min(12, h - i*12) + 'px';
+      cell.style.background = '#E53E3E';
+      cell.dataset.idx = i;
+      el.appendChild(cell);
+    }
+  }
+}
+
+function allStickersDone() {
+  return state.stickersDone.long && state.stickersDone.square && state.stickersDone.d;
+}
+
+// ========== CANDLES ==========
+function showCandles(pos) {
+  ['Long', 'Square', 'D'].forEach(n => {
+    document.getElementById('candle' + n).style.display = 'flex';
+    document.getElementById('candle' + n).style.justifyContent = 'center';
+  });
+}
+
+function setHeatPos(pos) {
+  state.heatPos = pos;
+}
+
+// ========== HEATING SIMULATION ==========
+let heatInterval = null;
+let heatProgress = 0;
+
+function startHeating(step) {
+  if (state.heating) return;
+  state.heating = true;
+
+  // Disable button
+  document.getElementById('heatBtn' + step).disabled = true;
+  document.getElementById('resetBtn' + step).disabled = false;
+
+  // Light flames
+  ['Long', 'Square', 'D'].forEach(n => {
+    document.getElementById('flame' + n).classList.add('lit');
+  });
+
+  heatProgress = 0;
+  const pos = step === 2 ? 'end' : 'mid';
+  const tempFill = document.getElementById('tempFill' + step);
+  const tempVal = document.getElementById('tempVal' + step);
+
+  addLog(pos === 'end' ? '끝부분을 초로 가열 시작! 열 변색 붙임딱지의 변화를 관찰하세요.' : '가운데 부분을 초로 가열 시작! 모든 방향으로의 열 이동을 관찰하세요.');
+
+  heatInterval = setInterval(() => {
+    heatProgress += 2;
+    if (heatProgress > 100) heatProgress = 100;
+
+    // Update temp display
+    const temp = 20 + Math.round(heatProgress * 1.8);
+    tempFill.style.width = heatProgress + '%';
+    tempVal.textContent = temp + '°C';
+
+    // Update sticker colors
+    updateStickerColors(pos, heatProgress);
+
+    if (heatProgress % 25 === 0 && heatProgress > 0) {
+      addLog(`온도 ${temp}°C — 열이 이동하고 있습니다.`);
+    }
+
+    if (heatProgress >= 100) {
+      clearInterval(heatInterval);
+      state.heating = false;
+
+      if (step === 2) {
+        state.step2Done = true;
+        document.getElementById('step2NextBtn').disabled = false;
+        addLog('끝부분 가열 완료! 열이 반대쪽 끝까지 이동했음을 확인했습니다.');
+        showToast('🔥 가열 완료! 다음 단계로 이동하세요.');
+      } else {
+        state.step3Done = true;
+        document.getElementById('step3NextBtn').disabled = false;
+        addLog('가운데 가열 완료! 열이 모든 방향으로 고르게 퍼졌습니다.');
+        showToast('🔥 가열 완료! 관찰 결과를 정리해보세요.');
+      }
+    }
+  }, 80);
+}
+
+function updateStickerColors(pos, progress) {
+  // Long plate
+  updateLinearHeat('stickerLong', pos, progress, 'long');
+  // Square plate
+  updateSquareHeat('stickerSquare', pos, progress);
+  // D-shape plate
+  updateDHeat(pos, progress);
+}
+
+function colorAtProgress(p) {
+  // 0=red, 50=orange, 75=yellow, 100=white
+  if (p <= 0) return '#E53E3E';
+  if (p <= 40) {
+    const t = p / 40;
+    return lerpColor('#E53E3E', '#f97316', t);
+  }
+  if (p <= 70) {
+    const t = (p - 40) / 30;
+    return lerpColor('#f97316', '#fbbf24', t);
+  }
+  const t = (p - 70) / 30;
+  return lerpColor('#fbbf24', '#FFFFFF', t);
+}
+
+function lerpColor(a, b, t) {
+  const ah = a.replace('#','');
+  const bh = b.replace('#','');
+  const ar = parseInt(ah.slice(0,2),16), ag = parseInt(ah.slice(2,4),16), ab2 = parseInt(ah.slice(4,6),16);
+  const br = parseInt(bh.slice(0,2),16), bg = parseInt(bh.slice(2,4),16), bb2 = parseInt(bh.slice(4,6),16);
+  const r = Math.round(ar + (br-ar)*t);
+  const g = Math.round(ag + (bg-ag)*t);
+  const b2 = Math.round(ab2 + (bb2-ab2)*t);
+  return `rgb(${r},${g},${b2})`;
+}
+
+function updateLinearHeat(id, pos, progress, plateType) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const cells = el.querySelectorAll('.sticker-cell');
+  const n = cells.length;
+  if (n === 0) return;
+
+  cells.forEach((cell, i) => {
+    let heatP;
+    if (pos === 'end') {
+      // Heat from index 0 (left = start)
+      const distFromStart = i / (n - 1); // 0..1
+      // Heat wave propagates: as progress increases, more cells become hot
+      const wavePos = progress / 100;
+      heatP = Math.max(0, Math.min(100, (wavePos - distFromStart * 0.9) * 200));
+    } else {
+      // Heat from center
+      const mid = (n - 1) / 2;
+      const distFromCenter = Math.abs(i - mid) / mid; // 0..1
+      const wavePos = progress / 100;
+      heatP = Math.max(0, Math.min(100, (wavePos - distFromCenter * 0.9) * 200));
+    }
+    cell.style.background = colorAtProgress(heatP);
+  });
+}
+
+function updateSquareHeat(id, pos, progress) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const cells = el.querySelectorAll('.sticker-cell');
+  const n = cells.length;
+  if (n === 0) return;
+
+  cells.forEach((cell, i) => {
+    let heatP;
+    if (pos === 'end') {
+      const distFromStart = i / (n - 1);
+      const wavePos = progress / 100;
+      heatP = Math.max(0, Math.min(100, (wavePos - distFromStart * 0.9) * 200));
+    } else {
+      const mid = (n - 1) / 2;
+      const distFromCenter = Math.abs(i - mid) / mid;
+      const wavePos = progress / 100;
+      heatP = Math.max(0, Math.min(100, (wavePos - distFromCenter * 0.9) * 200));
+    }
+    cell.style.background = colorAtProgress(heatP);
+  });
+}
+
+function updateDHeat(pos, progress) {
+  // ㄷ shape: top, left arm, bottom bars
+  const topCells = document.querySelectorAll('#stickerDTop .sticker-cell');
+  const leftCells = document.querySelectorAll('#stickerDLeft .sticker-cell');
+  const botCells = document.querySelectorAll('#stickerDBot .sticker-cell');
+
+  const nT = topCells.length;
+  const nL = leftCells.length;
+  const nB = botCells.length;
+
+  // For 'end': heat starts from right end of top bar (index nT-1), travels left, then down left bar, then right along bottom
+  // For 'mid': heat from center of top bar radiates both ways
+  const wave = progress / 100;
+
+  if (pos === 'end') {
+    // top bar: heat from right (index nT-1) going left
+    topCells.forEach((cell, i) => {
+      const distFromRight = (nT - 1 - i) / (nT - 1);
+      const heatP = Math.max(0, Math.min(100, (wave - distFromRight * 0.7) * 200));
+      cell.style.background = colorAtProgress(heatP);
+    });
+    // left bar: heat arrives after top is mostly done
+    leftCells.forEach((cell, i) => {
+      const delay = 0.35;
+      const dist = i / (nL - 1);
+      const heatP = Math.max(0, Math.min(100, (wave - delay - dist * 0.3) * 300));
+      cell.style.background = colorAtProgress(heatP);
+    });
+    // bottom bar: heat from left going right
+    botCells.forEach((cell, i) => {
+      const delay = 0.55;
+      const dist = i / (nB - 1);
+      const heatP = Math.max(0, Math.min(100, (wave - delay - dist * 0.45) * 300));
+      cell.style.background = colorAtProgress(heatP);
+    });
+  } else {
+    // mid: heat from center of top bar
+    topCells.forEach((cell, i) => {
+      const mid = (nT - 1) / 2;
+      const distFromCenter = Math.abs(i - mid) / mid;
+      const heatP = Math.max(0, Math.min(100, (wave - distFromCenter * 0.6) * 200));
+      cell.style.background = colorAtProgress(heatP);
+    });
+    // left bar: moderate heating from top connection
+    leftCells.forEach((cell, i) => {
+      const delay = 0.25;
+      const dist = i / (nL - 1);
+      const heatP = Math.max(0, Math.min(100, (wave - delay - dist * 0.3) * 250));
+      cell.style.background = colorAtProgress(heatP);
+    });
+    // bottom bar: moderate heating
+    botCells.forEach((cell, i) => {
+      const delay = 0.4;
+      const mid = (nB - 1) / 2;
+      const distFromCenter = Math.abs(i - mid) / mid;
+      const heatP = Math.max(0, Math.min(100, (wave - delay - distFromCenter * 0.3) * 250));
+      cell.style.background = colorAtProgress(heatP);
+    });
+  }
+}
+
+function resetHeating(step) {
+  if (heatInterval) clearInterval(heatInterval);
+  state.heating = false;
+  heatProgress = 0;
+
+  document.getElementById('heatBtn' + step).disabled = false;
+  document.getElementById('resetBtn' + step).disabled = true;
+  document.getElementById('tempFill' + step).style.width = '0%';
+  document.getElementById('tempVal' + step).textContent = '20°C';
+
+  // Extinguish flames
+  ['Long', 'Square', 'D'].forEach(n => {
+    document.getElementById('flame' + n).classList.remove('lit');
+  });
+
+  // Reset sticker colors
+  document.querySelectorAll('.sticker-cell').forEach(cell => {
+    cell.style.background = '#E53E3E';
+  });
+
+  if (step === 2) state.step2Done = false, document.getElementById('step2NextBtn').disabled = true;
+  if (step === 3) state.step3Done = false, document.getElementById('step3NextBtn').disabled = true;
+
+  addLog('초기화되었습니다. 다시 가열해보세요.');
+}
+
+function resetHeatingVisuals() {
+  // Extinguish candles
+  ['Long', 'Square', 'D'].forEach(n => {
+    document.getElementById('flame' + n).classList.remove('lit');
+  });
+}
+
+// ========== RESULT ==========
+function showResult() {
+  document.getElementById('resultScreen').classList.add('show');
+  addLog('관찰 결과를 확인했습니다! 실험 완료!');
+}
+
+function closeResult() {
+  document.getElementById('resultScreen').classList.remove('show');
+}
+
+function restartAll() {
+  location.reload();
+}
+
+// ========== UTILS ==========
+function addLog(msg) {
+  const log = document.getElementById('obsLog');
+  const entry = document.createElement('div');
+  entry.className = 'obs-entry';
+  const now = new Date();
+  const t = now.getMinutes().toString().padStart(2,'0') + ':' + now.getSeconds().toString().padStart(2,'0');
+  entry.innerHTML = `<span class="time">${t}</span>${msg}`;
+  log.appendChild(entry);
+  log.scrollTop = log.scrollHeight;
+}
+
+let toastTimeout;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ========== INIT ==========
+updateStepUI(1);
+</script>
+</body>
+</html>
