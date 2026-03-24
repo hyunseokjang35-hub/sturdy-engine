@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>가상 실험실 — 고체에서 열의 이동</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800;900&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;user-select:none;-webkit-user-select:none;}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Noto Sans KR',sans-serif;}
+canvas{display:block;}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const C=document.getElementById('c'),X=C.getContext('2d');
+let W,H,dpr=Math.min(devicePixelRatio||1,2);
+
+// ══════ STATE ══════
+// phases: 'selectPlate' → 'plateReady' (plate on stand, candle appears) → 'heating' → 'done'
+let phase='selectPlate';
+let selectedPlate=null;
+let dragging=null; // 'rect','bar','cshape','candle'
+let dragX=0,dragY=0;
+let heatMap=[],heatTick=0,candleP=0,dropPulse=0,particles=[];
+let mascotMsg='세 가지 모양의 구리판 중\n하나를 골라 드래그해 주세요.';
+
+let plateCards=[],dropTarget={},platePos={};
+let candleCard={},candleDropTarget={},candlePlaced=false;
+
+const GRID={rect:{c:18,r:18},bar:{c:44,r:4},cshape:{c:22,r:18}};
+
+function resize(){
+  W=innerWidth;H=innerHeight;
+  C.width=W*dpr;C.height=H*dpr;
+  C.style.width=W+'px';C.style.height=H+'px';
+  X.setTransform(dpr,0,0,dpr,0,0);
+  layout();draw();
+}
+addEventListener('resize',resize);
+
+function layout(){
+  const rw=115,rh=95,gap=22,sy=H*.12,rx=W-rw-45;
+  plateCards=[
+    {type:'rect',x:rx,y:sy,w:rw,h:rh,label:'정사각형 구리판'},
+    {type:'bar',x:rx,y:sy+rh+gap,w:rw,h:rh,label:'막대 모양 구리판'},
+    {type:'cshape',x:rx,y:sy+2*(rh+gap),w:rw,h:rh,label:'ㄷ 모양 구리판'},
+  ];
+  // drop target = clamp area on stand
+  dropTarget={x:W*.50,y:H*.30,r:Math.min(W,H)*.13};
+  platePos={x:W*.53,y:H*.30};
+  // candle card (shown after plate placed, right side bottom)
+  candleCard={x:rx,y:sy+3*(rh+gap),w:rw,h:rh,label:'초'};
+  // candle drop target = below/near the plate
+  candleDropTarget={x:W*.60,y:H*.52,r:Math.min(W,H)*.10};
+}
+
+/* ═══ HEAT ═══ */
+function isC(r,c){const g=GRID.cshape,t=3;return r<t||r>=g.r-t||c>=g.c-t;}
+function resetH(){if(!selectedPlate)return;const g=GRID[selectedPlate];heatMap=Array.from({length:g.r},()=>Array(g.c).fill(0));}
+function propagate(){
+  if(!selectedPlate)return;
+  const g=GRID[selectedPlate],n=heatMap.map(r=>[...r]),R=.065,S=.04;
+  if(selectedPlate==='bar'){const sc=Math.floor(g.c*.1);for(let r=0;r<g.r;r++)n[r][sc]=Math.min(1,n[r][sc]+S);}
+  else if(selectedPlate==='rect'){for(let r=g.r-3;r<g.r;r++)for(let c=0;c<3;c++)n[r][c]=Math.min(1,n[r][c]+S);}
+  else{for(let r=0;r<3;r++)for(let c=0;c<2;c++)if(isC(r,c))n[r][c]=Math.min(1,n[r][c]+S);}
+  for(let r=0;r<g.r;r++)for(let c=0;c<g.c;c++){
+    if(selectedPlate==='cshape'&&!isC(r,c))continue;
+    let s=0,cnt=0;
+    [[-1,0],[1,0],[0,-1],[0,1]].forEach(([dr,dc])=>{
+      const nr=r+dr,nc=c+dc;
+      if(nr>=0&&nr<g.r&&nc>=0&&nc<g.c){if(selectedPlate==='cshape'&&!isC(nr,nc))return;s+=heatMap[nr][nc]-heatMap[r][c];cnt++;}
+    });
+    if(cnt)n[r][c]=Math.max(0,Math.min(1,n[r][c]+s*R/cnt));
+  }
+  heatMap=n;
+}
+function stColor(v){
+  if(v<.04)return[230,72,82];
+  if(v<.35){const t=v/.35;return[Lr(230,242,t),Lr(72,150,t),Lr(82,140,t)];}
+  if(v<.65){const t=(v-.35)/.3;return[Lr(242,250,t),Lr(150,215,t),Lr(140,210,t)];}
+  {const t=(v-.65)/.35;return[Lr(250,255,t),Lr(215,250,t),Lr(210,248,t)];}
+}
+function Lr(a,b,t){return Math.round(a+(b-a)*t);}
+
+/* ═══ CHROME PIPE ═══ */
+function chrome(x,y,w,h,vert){
+  const g=vert?X.createLinearGradient(x,0,x+w,0):X.createLinearGradient(0,y,0,y+h);
+  g.addColorStop(0,'#5a5a5a');g.addColorStop(.07,'#999');g.addColorStop(.16,'#d0d0d0');
+  g.addColorStop(.24,'#eee');g.addColorStop(.32,'#f8f8f8');g.addColorStop(.40,'#eee');
+  g.addColorStop(.50,'#bbb');g.addColorStop(.58,'#a0a0a0');g.addColorStop(.66,'#c8c8c8');
+  g.addColorStop(.74,'#eee');g.addColorStop(.82,'#ddd');g.addColorStop(.90,'#a0a0a0');
+  g.addColorStop(1,'#5a5a5a');
+  X.fillStyle=g;X.fillRect(x,y,w,h);
+}
+
+/* ═══════════ DRAW ═══════════ */
+function draw(){
+  X.save();
+  // BG
+  const bg=X.createLinearGradient(0,0,W*.2,H);
+  bg.addColorStop(0,'#bfbfbf');bg.addColorStop(.5,'#b4b4b4');bg.addColorStop(1,'#a2a2a2');
+  X.fillStyle=bg;X.fillRect(0,0,W,H);
+
+  drawStand();
+  if(phase==='selectPlate') drawDropZone(dropTarget);
+  if(phase!=='selectPlate') drawPlacedPlate();
+  if(phase==='plateReady'){
+    drawCandleCard();
+    if(!candlePlaced) drawDropZone(candleDropTarget);
+  }
+  if(phase==='plateReady'&&candlePlaced || phase==='heating'||phase==='done'){
+    drawTripodCandle();
+  }
+  if(phase==='heating'||phase==='done') drawHeatFx();
+  drawCards();
+  if(dragging) drawDragging();
+  drawTitle();drawMascot();
+  if(phase!=='selectPlate') drawReset();
+  if(phase==='selectPlate') drawTooltipAt(dropTarget,'세 가지 모양의 구리판 중 하나를 골라 드래그해 주세요.');
+  if(phase==='plateReady'&&!candlePlaced) drawTooltipAt(candleDropTarget,'초를 구리판 아래로 드래그해 주세요.');
+  X.restore();
+}
+
+/* ══════════════ STAND (matching reference image exactly) ══════════════ */
+function drawStand(){
+  // Measurements based on reference image
+  const baseCX=W*.26;
+  const baseW=W*.19, baseH=H*.032, baseDepth=H*.022;
+  const baseX=baseCX-baseW/2;
+  const baseTopY=H*.72;
+
+  const rodX=baseCX;
+  const rodW=W*.011;
+  const rodTop=H*.08;
+
+  // Arm position
+  const armY=H*.30;
+  const armH=H*.010;
+  const armLeft=rodX-W*.06;
+  const armRight=rodX+W*.25;
+
+  // ── Shadow ──
+  X.save();X.filter='blur(10px)';
+  X.fillStyle='rgba(0,0,0,.20)';
+  X.beginPath();X.ellipse(baseCX,baseTopY+baseH+baseDepth+8,baseW*.54,10,0,0,Math.PI*2);X.fill();
+  X.restore();
+
+  // ── BASE (thick 3D black box) ──
+  // Front face (depth)
+  const fG=X.createLinearGradient(baseX,baseTopY+baseH,baseX,baseTopY+baseH+baseDepth);
+  fG.addColorStop(0,'#2a2a2a');fG.addColorStop(.5,'#1e1e1e');fG.addColorStop(1,'#151515');
+  X.fillStyle=fG;
+  X.fillRect(baseX+2,baseTopY+baseH,baseW-4,baseDepth);
+  // Right face hint
+  X.fillStyle='rgba(255,255,255,.02)';
+  X.fillRect(baseX+baseW-4,baseTopY+baseH,3,baseDepth);
+
+  // Top surface
+  const tG=X.createLinearGradient(baseX,baseTopY,baseX+baseW,baseTopY+baseH);
+  tG.addColorStop(0,'#444');tG.addColorStop(.1,'#383838');tG.addColorStop(.5,'#2e2e2e');
+  tG.addColorStop(.9,'#252525');tG.addColorStop(1,'#303030');
+  X.fillStyle=tG;rr(baseX,baseTopY,baseW,baseH,2);X.fill();
+  // top highlight
+  X.fillStyle='rgba(255,255,255,.06)';X.fillRect(baseX+4,baseTopY+1,baseW-8,2);
+  // screw details
+  screw(baseX+baseW*.20,baseTopY+baseH*.5,3);
+  screw(baseX+baseW*.80,baseTopY+baseH*.5,3);
+
+  // ── VERTICAL ROD ──
+  chrome(rodX-rodW/2,rodTop,rodW,baseTopY-rodTop,true);
+  // top cap
+  const cG=X.createRadialGradient(rodX-1,rodTop-1,0,rodX,rodTop,rodW*.8);
+  cG.addColorStop(0,'#ddd');cG.addColorStop(.5,'#bbb');cG.addColorStop(1,'#888');
+  X.fillStyle=cG;X.beginPath();X.arc(rodX,rodTop,rodW*.8,0,Math.PI*2);X.fill();
+
+  // ── HORIZONTAL ARM ──
+  chrome(armLeft,armY-armH/2,armRight-armLeft,armH,false);
+
+  // ── BLACK CLAMP BLOCKS at intersection ──
+  // Main block (where rods cross) - two black rectangular blocks with knobs
+  const bkW=W*.028, bkH=H*.045;
+
+  // Left block (with tightening knob)
+  const lbx=rodX-bkW-rodW*.3, lby=armY-bkH/2;
+  drawBlackBlock(lbx,lby,bkW,bkH);
+  // Left knob (dark round knob)
+  drawBlackKnob(lbx-W*.008, armY, Math.min(W,H)*.016);
+
+  // Right block
+  const rbx=rodX+rodW*.3, rby=armY-bkH/2;
+  drawBlackBlock(rbx,rby,bkW,bkH);
+  // Right knob
+  drawBlackKnob(rbx+bkW+W*.008, armY, Math.min(W,H)*.016);
+
+  // ── BLUE CLAMP at arm end ──
+  const clampX=armRight-W*.012, clampY=armY;
+  const clampSz=Math.min(W,H)*.055;
+  drawBlueClamp(clampX,clampY,clampSz);
+}
+
+function drawBlackBlock(x,y,w,h){
+  const g=X.createLinearGradient(x,y,x+w,y+h);
+  g.addColorStop(0,'#404040');g.addColorStop(.3,'#2e2e2e');g.addColorStop(.7,'#252525');g.addColorStop(1,'#333');
+  X.fillStyle=g;rr(x,y,w,h,2);X.fill();
+  // highlight
+  X.fillStyle='rgba(255,255,255,.06)';X.fillRect(x+1,y+1,w-2,2);
+  // edge
+  X.strokeStyle='rgba(0,0,0,.15)';X.lineWidth=.5;rr(x,y,w,h,2);X.stroke();
+}
+
+function drawBlackKnob(cx,cy,r){
+  // Cylindrical knob (dark, with grip ridges)
+  const g=X.createRadialGradient(cx-r*.2,cy-r*.2,0,cx,cy,r);
+  g.addColorStop(0,'#4a4a4a');g.addColorStop(.4,'#363636');g.addColorStop(.8,'#2a2a2a');g.addColorStop(1,'#1e1e1e');
+  X.fillStyle=g;X.beginPath();X.arc(cx,cy,r,0,Math.PI*2);X.fill();
+  // grip ridges
+  X.strokeStyle='rgba(255,255,255,.06)';X.lineWidth=.5;
+  for(let a=0;a<Math.PI*2;a+=Math.PI/5){
+    X.beginPath();X.moveTo(cx+Math.cos(a)*r*.5,cy+Math.sin(a)*r*.5);
+    X.lineTo(cx+Math.cos(a)*r*.9,cy+Math.sin(a)*r*.9);X.stroke();
+  }
+  // highlight
+  X.fillStyle='rgba(255,255,255,.08)';
+  X.beginPath();X.arc(cx-r*.2,cy-r*.2,r*.35,0,Math.PI*2);X.fill();
+  X.strokeStyle='rgba(0,0,0,.2)';X.lineWidth=.8;
+  X.beginPath();X.arc(cx,cy,r,0,Math.PI*2);X.stroke();
+}
+
+function drawBlueClamp(cx,cy,sz){
+  // Metal jaw
+  const jG=X.createLinearGradient(cx-sz*.3,cy-sz*.2,cx+sz*.6,cy);
+  jG.addColorStop(0,'#b8b8b8');jG.addColorStop(.3,'#d5d5d5');jG.addColorStop(.5,'#e8e8e8');
+  jG.addColorStop(.7,'#ccc');jG.addColorStop(1,'#a8a8a8');
+  X.fillStyle=jG;
+  // top jaw
+  X.beginPath();X.moveTo(cx-sz*.25,cy-sz*.18);X.lineTo(cx+sz*.5,cy-sz*.07);
+  X.lineTo(cx+sz*.5,cy-sz*.01);X.lineTo(cx-sz*.25,cy-sz*.01);X.closePath();X.fill();
+  // bottom jaw
+  X.beginPath();X.moveTo(cx-sz*.25,cy+sz*.01);X.lineTo(cx+sz*.5,cy+sz*.01);
+  X.lineTo(cx+sz*.5,cy+sz*.07);X.lineTo(cx-sz*.25,cy+sz*.18);X.closePath();X.fill();
+  // highlight
+  X.fillStyle='rgba(255,255,255,.2)';X.fillRect(cx-sz*.1,cy-sz*.17,sz*.4,2);
+
+  // BLUE handle (single teardrop, matching image)
+  const hx=cx+sz*.7,hy=cy;
+  const hG=X.createRadialGradient(hx-sz*.1,hy-sz*.08,sz*.02,hx+sz*.05,hy,sz*.4);
+  hG.addColorStop(0,'#6aadee');hG.addColorStop(.3,'#4888dd');hG.addColorStop(.6,'#2a66c0');hG.addColorStop(1,'#1a4499');
+  X.fillStyle=hG;X.beginPath();X.ellipse(hx,hy,sz*.38,sz*.18,.05,0,Math.PI*2);X.fill();
+  // handle gloss
+  X.fillStyle='rgba(255,255,255,.3)';
+  X.beginPath();X.ellipse(hx-sz*.08,hy-sz*.07,sz*.16,sz*.05,-.2,0,Math.PI*2);X.fill();
+
+  // Pivot screw
+  const pG=X.createRadialGradient(cx+sz*.38-1,cy-1,0,cx+sz*.38,cy,sz*.04);
+  pG.addColorStop(0,'#ddd');pG.addColorStop(1,'#999');
+  X.fillStyle=pG;X.beginPath();X.arc(cx+sz*.38,cy,sz*.04,0,Math.PI*2);X.fill();
+
+  // Small bolt below
+  X.fillStyle='#777';X.beginPath();X.arc(cx+sz*.1,cy+sz*.28,sz*.05,0,Math.PI*2);X.fill();
+  X.strokeStyle='#555';X.lineWidth=.5;
+  X.beginPath();X.moveTo(cx+sz*.06,cy+sz*.28);X.lineTo(cx+sz*.14,cy+sz*.28);X.stroke();
+}
+
+function screw(x,y,r){
+  const g=X.createRadialGradient(x-1,y-1,0,x,y,r);
+  g.addColorStop(0,'#555');g.addColorStop(.5,'#3a3a3a');g.addColorStop(1,'#2a2a2a');
+  X.fillStyle=g;X.beginPath();X.arc(x,y,r,0,Math.PI*2);X.fill();
+  X.strokeStyle='#222';X.lineWidth=.7;
+  X.beginPath();X.moveTo(x-r*.4,y);X.lineTo(x+r*.4,y);X.stroke();
+  X.beginPath();X.moveTo(x,y-r*.4);X.lineTo(x,y+r*.4);X.stroke();
+}
+
+/* ══ DROP ZONE ══ */
+function drawDropZone(dt){
+  dropPulse+=.025;const p=Math.sin(dropPulse)*.12+.88;
+  X.setLineDash([10,8]);X.strokeStyle=`rgba(240,175,40,${.6*p})`;X.lineWidth=2.5;
+  X.beginPath();X.arc(dt.x,dt.y,dt.r*p,0,Math.PI*2);X.stroke();X.setLineDash([]);
+}
+
+/* ══ TRIPOD + CANDLE (200% size) ══ */
+function drawTripodCandle(){
+  const tx=W*.60,ty=H*.78,topY=ty-H*.18;
+  const CS=2.0;
+
+  // Shadow
+  X.save();X.filter='blur(6px)';X.fillStyle='rgba(0,0,0,.14)';
+  X.beginPath();X.ellipse(tx,ty+4,W*.055,6,0,0,Math.PI*2);X.fill();X.restore();
+
+  // Legs
+  const sp=W*.050;
+  [[-1,0],[1,0],[0,-.45],[0,.45]].forEach(([dx,dy])=>{
+    const x1=tx+dx*sp*.28,y1=topY+4,x2=tx+dx*sp,y2=ty-2;
+    const lg=X.createLinearGradient(x1-2,0,x1+3,0);
+    lg.addColorStop(0,'#808080');lg.addColorStop(.2,'#c0c0c0');lg.addColorStop(.4,'#e8e8e8');
+    lg.addColorStop(.6,'#d0d0d0');lg.addColorStop(.8,'#aaa');lg.addColorStop(1,'#787878');
+    X.strokeStyle=lg;X.lineWidth=2.5;X.lineCap='round';
+    X.beginPath();X.moveTo(x1,y1);X.lineTo(x2,y2);X.stroke();
+  });
+  // Ring
+  X.strokeStyle='#b0b0b0';X.lineWidth=2.5;
+  X.beginPath();X.ellipse(tx,topY+2,sp*.3,4.5,0,0,Math.PI*2);X.stroke();
+
+  // Wire mesh
+  const mw=W*.08,mh=mw*.2;
+  X.save();X.translate(tx,topY);
+  X.fillStyle='#bcc0c4';
+  X.beginPath();X.ellipse(0,0,mw/2+3,mh/2+3,0,0,Math.PI*2);X.fill();
+  X.strokeStyle='rgba(140,145,150,.5)';X.lineWidth=.4;
+  for(let i=-mw/2;i<=mw/2;i+=4){X.beginPath();X.moveTo(i,-mh/2);X.lineTo(i,mh/2);X.stroke();}
+  for(let j=-mh/2;j<=mh/2;j+=3){X.beginPath();X.moveTo(-mw/2,j);X.lineTo(mw/2,j);X.stroke();}
+  const cG=X.createRadialGradient(0,-1,0,0,0,mw*.18);
+  cG.addColorStop(0,'#eee');cG.addColorStop(1,'#ccc');
+  X.fillStyle=cG;X.beginPath();X.ellipse(0,0,mw*.18,mh*.3,0,0,Math.PI*2);X.fill();
+  X.restore();
+
+  // ── CANDLE 200% ──
+  const cy2=topY-3;
+  X.save();X.filter='blur('+(4*CS)+'px)';X.fillStyle='rgba(0,0,0,.12)';
+  X.beginPath();X.ellipse(tx,cy2+7*CS,15*CS,4*CS,0,0,Math.PI*2);X.fill();X.restore();
+  // cup
+  const cupG=X.createLinearGradient(tx-15*CS,0,tx+15*CS,0);
+  cupG.addColorStop(0,'#8a8a8a');cupG.addColorStop(.12,'#b8b8b8');cupG.addColorStop(.28,'#ddd');
+  cupG.addColorStop(.42,'#eee');cupG.addColorStop(.55,'#e0e0e0');cupG.addColorStop(.72,'#c8c8c8');
+  cupG.addColorStop(.88,'#aaa');cupG.addColorStop(1,'#858585');
+  X.fillStyle=cupG;
+  X.beginPath();X.ellipse(tx,cy2+5*CS,15*CS,4.5*CS,0,0,Math.PI*2);X.fill();
+  X.fillRect(tx-15*CS,cy2-2*CS,30*CS,7*CS);
+  X.beginPath();X.ellipse(tx,cy2-2*CS,15*CS,4.5*CS,0,0,Math.PI*2);X.fill();
+  X.strokeStyle='rgba(255,255,255,.2)';X.lineWidth=CS*.7;
+  X.beginPath();X.ellipse(tx,cy2-2*CS,15*CS,4.5*CS,0,.05*Math.PI,.95*Math.PI);X.stroke();
+  // wax
+  const wG=X.createRadialGradient(tx-2*CS,cy2-3*CS,0,tx,cy2,14*CS);
+  wG.addColorStop(0,'#faf6ec');wG.addColorStop(.6,'#f0e8d8');wG.addColorStop(1,'#e0d8c5');
+  X.fillStyle=wG;X.beginPath();X.ellipse(tx,cy2-2*CS,14*CS,3.8*CS,0,0,Math.PI*2);X.fill();
+  // wick
+  X.strokeStyle='#3a3a3a';X.lineWidth=1.2*CS;
+  X.beginPath();X.moveTo(tx,cy2-2*CS);X.lineTo(tx,cy2-9*CS);X.stroke();
+
+  // Flame (only when heating/done)
+  if(phase==='heating'||phase==='done'){
+    candleP+=.12;const f=Math.sin(candleP)*.08+.92;
+    const fy=cy2-10*CS;
+    // glow
+    const gl=X.createRadialGradient(tx,fy-10*CS,0,tx,fy-5*CS,45*CS);
+    gl.addColorStop(0,'rgba(255,200,60,.1)');gl.addColorStop(1,'rgba(255,150,30,0)');
+    X.fillStyle=gl;X.beginPath();X.arc(tx,fy-10*CS,45*CS,0,Math.PI*2);X.fill();
+    // outer
+    const og=X.createRadialGradient(tx,fy-14*f*CS,0,tx,fy-8*CS,18*f*CS);
+    og.addColorStop(0,'rgba(255,230,80,.95)');og.addColorStop(.35,'rgba(255,150,30,.65)');
+    og.addColorStop(.7,'rgba(255,70,15,.3)');og.addColorStop(1,'rgba(255,30,0,0)');
+    X.fillStyle=og;X.beginPath();X.ellipse(tx,fy-14*f*CS,8*f*CS,18*f*CS,0,0,Math.PI*2);X.fill();
+    // inner
+    const ig=X.createRadialGradient(tx,fy-12*CS,0,tx,fy-10*CS,6*CS);
+    ig.addColorStop(0,'rgba(255,255,235,1)');ig.addColorStop(1,'rgba(255,220,100,0)');
+    X.fillStyle=ig;X.beginPath();X.ellipse(tx,fy-12*CS,4*CS,8*CS,0,0,Math.PI*2);X.fill();
+  } else {
+    // tiny idle flame
+    const fy=cy2-10*CS;
+    smFlame(tx,fy,.3,CS);
+  }
+}
+
+function smFlame(x,y,s,sc){
+  sc=sc||1;
+  const g=X.createRadialGradient(x,y-3*s*sc,0,x,y-2*s*sc,7*s*sc);
+  g.addColorStop(0,`rgba(255,230,100,${s})`);g.addColorStop(.5,`rgba(255,160,40,${s*.5})`);g.addColorStop(1,'rgba(255,80,10,0)');
+  X.fillStyle=g;X.beginPath();X.ellipse(x,y-3*s*sc,3.5*s*sc,7*s*sc,0,0,Math.PI*2);X.fill();
+}
+
+/* ══ PLACED PLATE ══ */
+function drawPlacedPlate(){
+  if(!selectedPlate)return;
+  const px=platePos.x,py=platePos.y,g=GRID[selectedPlate];
+  X.save();X.filter='blur(4px)';X.fillStyle='rgba(0,0,0,.1)';
+  if(selectedPlate==='bar')X.fillRect(px-140,py-10,282,24);
+  else if(selectedPlate==='rect')X.fillRect(px-62,py-62,126,126);
+  else X.fillRect(px-94,py-82,190,166);
+  X.restore();
+  if(selectedPlate==='rect'){
+    const pw=120,ph=120,cw=pw/g.c,ch=ph/g.r;
+    for(let r=0;r<g.r;r++)for(let c=0;c<g.c;c++){const[cr,cg,cb]=stColor(heatMap[r]?.[c]||0);X.fillStyle=`rgb(${cr},${cg},${cb})`;X.fillRect(px-pw/2+c*cw,py-ph/2+r*ch,cw+.4,ch+.4);}
+  }else if(selectedPlate==='bar'){
+    const pw=280,ph=22,cw=pw/g.c,ch=ph/g.r;
+    for(let r=0;r<g.r;r++)for(let c=0;c<g.c;c++){const[cr,cg,cb]=stColor(heatMap[r]?.[c]||0);X.fillStyle=`rgb(${cr},${cg},${cb})`;X.fillRect(px-pw/2+c*cw,py-ph/2+r*ch,cw+.4,ch+.4);}
+  }else{
+    const pw=185,ph=160,cw=pw/g.c,ch=ph/g.r;
+    for(let r=0;r<g.r;r++)for(let c=0;c<g.c;c++){if(!isC(r,c))continue;const[cr,cg,cb]=stColor(heatMap[r]?.[c]||0);X.fillStyle=`rgb(${cr},${cg},${cb})`;X.fillRect(px-pw/2+c*cw,py-ph/2+r*ch,cw+.4,ch+.4);}
+  }
+}
+
+function drawHeatFx(){
+  if(heatTick%4===0){const p=platePos;particles.push({x:p.x+(Math.random()-.5)*25,y:p.y-15,l:30,o:.3});}
+  particles.forEach(p=>{p.y-=.5;p.x+=(Math.random()-.5);p.l--;p.o=p.l/30*.2;X.fillStyle=`rgba(255,170,60,${p.o})`;X.beginPath();X.arc(p.x,p.y,1.5,0,Math.PI*2);X.fill();});
+  particles=particles.filter(p=>p.l>0);
+}
+
+/* ══ PLATE CARDS ══ */
+function drawCards(){
+  if(phase!=='selectPlate')return;
+  plateCards.forEach(cd=>{
+    const{x,y,w,h,type,label}=cd;
+    X.save();X.filter='blur(4px)';X.fillStyle='rgba(0,0,0,.14)';rr(x+2,y+3,w,h,12);X.fill();X.restore();
+    const cbg=X.createLinearGradient(x,y,x,y+h);cbg.addColorStop(0,'#eaeaea');cbg.addColorStop(1,'#dadada');
+    X.fillStyle=cbg;rr(x,y,w,h,12);X.fill();
+    const cx=x+w/2,cy=y+h*.38;
+    if(type==='rect'){X.fillStyle='rgba(230,72,82,.8)';X.fillRect(cx-28,cy-25,56,50);}
+    else if(type==='bar'){X.fillStyle='rgba(230,72,82,.8)';rr(cx-42,cy-7,84,14,3);X.fill();}
+    else{X.fillStyle='rgba(230,72,82,.8)';X.fillRect(cx-30,cy-25,60,11);X.fillRect(cx-30,cy+14,60,11);X.fillRect(cx+18,cy-25,12,50);}
+    X.fillStyle='#444';X.font='600 11px "Noto Sans KR"';X.textAlign='center';
+    X.fillText(label,x+w/2,y+h-8);X.textAlign='left';
+  });
+}
+
+/* ══ CANDLE CARD (shown after plate placed) ══ */
+function drawCandleCard(){
+  if(candlePlaced)return;
+  const cd=candleCard;
+  X.save();X.filter='blur(4px)';X.fillStyle='rgba(0,0,0,.14)';rr(cd.x+2,cd.y+3,cd.w,cd.h,12);X.fill();X.restore();
+  const cbg=X.createLinearGradient(cd.x,cd.y,cd.x,cd.y+cd.h);cbg.addColorStop(0,'#eaeaea');cbg.addColorStop(1,'#dadada');
+  X.fillStyle=cbg;rr(cd.x,cd.y,cd.w,cd.h,12);X.fill();
+  // candle icon
+  const cx=cd.x+cd.w/2,cy=cd.y+cd.h*.38;
+  // cup
+  const cupG=X.createLinearGradient(cx-18,0,cx+18,0);
+  cupG.addColorStop(0,'#999');cupG.addColorStop(.3,'#ccc');cupG.addColorStop(.5,'#ddd');cupG.addColorStop(.7,'#c0c0c0');cupG.addColorStop(1,'#909090');
+  X.fillStyle=cupG;
+  X.beginPath();X.ellipse(cx,cy+6,18,5,0,0,Math.PI*2);X.fill();
+  X.fillRect(cx-18,cy,36,6);
+  X.fillStyle='#f0ece0';X.beginPath();X.ellipse(cx,cy,18,5,0,0,Math.PI*2);X.fill();
+  X.strokeStyle='#444';X.lineWidth=1;X.beginPath();X.moveTo(cx,cy);X.lineTo(cx,cy-8);X.stroke();
+  smFlame(cx,cy-10,.5,1);
+  X.fillStyle='#444';X.font='600 11px "Noto Sans KR"';X.textAlign='center';
+  X.fillText(cd.label,cd.x+cd.w/2,cd.y+cd.h-8);X.textAlign='left';
+}
+
+/* ══ DRAGGING ══ */
+function drawDragging(){
+  X.globalAlpha=.7;
+  if(dragging==='candle'){
+    // draw candle being dragged
+    const cx=dragX,cy=dragY;
+    const cupG=X.createLinearGradient(cx-20,0,cx+20,0);
+    cupG.addColorStop(0,'#999');cupG.addColorStop(.3,'#ccc');cupG.addColorStop(.7,'#c0c0c0');cupG.addColorStop(1,'#909090');
+    X.fillStyle=cupG;
+    X.beginPath();X.ellipse(cx,cy+6,20,6,0,0,Math.PI*2);X.fill();
+    X.fillRect(cx-20,cy,40,6);
+    X.fillStyle='#f0ece0';X.beginPath();X.ellipse(cx,cy,20,6,0,0,Math.PI*2);X.fill();
+    X.strokeStyle='#444';X.lineWidth=1.2;X.beginPath();X.moveTo(cx,cy);X.lineTo(cx,cy-9);X.stroke();
+    smFlame(cx,cy-11,.6,1.3);
+  } else {
+    const sz=65;
+    X.fillStyle='rgba(230,72,82,.8)';
+    if(dragging==='rect')X.fillRect(dragX-sz/2,dragY-sz/2,sz,sz);
+    else if(dragging==='bar'){rr(dragX-sz,dragY-8,sz*2,16,3);X.fill();}
+    else{X.fillRect(dragX-35,dragY-30,70,11);X.fillRect(dragX-35,dragY+19,70,11);X.fillRect(dragX+23,dragY-30,12,60);}
+  }
+  X.globalAlpha=1;
+}
+
+/* ══ UI ══ */
+function drawTitle(){
+  X.fillStyle='#60d4aa';rr(20,14,115,32,16);X.fill();
+  X.fillStyle='#fff';X.font='800 13px "Noto Sans KR"';X.fillText('가상 실험실',36,35);
+  X.fillStyle='#3a3a3a';X.font='600 14px "Noto Sans KR"';
+  X.fillText('고체에서 열의 이동으로 나타나는 현상 관찰하기',148,35);
+}
+
+function drawMascot(){
+  const mx=W*.34,my=H*.86,s=Math.min(W,H)*.052;
+  X.save();X.filter='blur(3px)';X.fillStyle='rgba(0,0,0,.1)';
+  X.beginPath();X.ellipse(mx,my+s*.65,s*.5,4,0,0,Math.PI*2);X.fill();X.restore();
+  const bg2=X.createRadialGradient(mx-s*.1,my-s*.3,s*.1,mx,my,s*.85);
+  bg2.addColorStop(0,'#b8ee70');bg2.addColorStop(1,'#80c840');
+  X.fillStyle=bg2;rr(mx-s*.65,my-s*.7,s*1.3,s*1.1,s*.32);X.fill();
+  const ey=my-s*.28;
+  [-.2,.2].forEach((dx,i)=>{
+    X.fillStyle='#fff';X.beginPath();X.arc(mx+s*dx,ey,s*.18,0,Math.PI*2);X.fill();
+    X.fillStyle='#222';X.beginPath();X.arc(mx+s*(dx+(i?.04:-.04)),ey+1,s*.08,0,Math.PI*2);X.fill();
+    X.fillStyle='#fff';X.beginPath();X.arc(mx+s*(dx+(i?.02:-.02)),ey-2,s*.035,0,Math.PI*2);X.fill();
+  });
+  X.fillStyle='#e88520';X.fillRect(mx-s*.25,my+s*.35,s*.14,s*.2);X.fillRect(mx+s*.11,my+s*.35,s*.14,s*.2);
+  X.fillStyle='#f0952b';rr(mx-s*.29,my+s*.5,s*.22,s*.08,3);X.fill();rr(mx+s*.07,my+s*.5,s*.22,s*.08,3);X.fill();
+  if(phase==='selectPlate'||phase==='plateReady'){X.fillStyle='#90c840';X.beginPath();X.arc(mx+s*.7,my-s*.5,s*.12,0,Math.PI*2);X.fill();X.fillRect(mx+s*.66,my-s*.85,s*.08,s*.35);X.beginPath();X.arc(mx+s*.7,my-s*.88,s*.05,0,Math.PI*2);X.fill();}
+  speechBubble(mx+s*.5,my-s*1.3,mascotMsg);
+}
+
+function speechBubble(x,y,msg){
+  const ls=msg.split('\n');X.font='600 12px "Noto Sans KR"';
+  let mw=0;ls.forEach(l=>{const m=X.measureText(l).width;if(m>mw)mw=m;});
+  const pw=mw+26,ph=ls.length*18+14,bx=x-pw/2,by=y-ph;
+  X.save();X.filter='blur(3px)';X.fillStyle='rgba(0,0,0,.08)';rr(bx+2,by+2,pw,ph,13);X.fill();X.restore();
+  X.fillStyle='#fff';rr(bx,by,pw,ph,13);X.fill();
+  X.strokeStyle='#ccc';X.lineWidth=1;rr(bx,by,pw,ph,13);X.stroke();
+  X.fillStyle='#fff';X.beginPath();X.moveTo(x-6,by+ph);X.lineTo(x,by+ph+9);X.lineTo(x+6,by+ph);X.closePath();X.fill();
+  X.strokeStyle='#ccc';X.beginPath();X.moveTo(x-6,by+ph-.5);X.lineTo(x,by+ph+9);X.stroke();
+  X.beginPath();X.moveTo(x,by+ph+9);X.lineTo(x+6,by+ph-.5);X.stroke();
+  X.fillStyle='#fff';X.fillRect(x-7,by+ph-2,14,3);
+  X.fillStyle='#333';X.textAlign='center';ls.forEach((l,i)=>X.fillText(l,bx+pw/2,by+17+i*18));X.textAlign='left';
+}
+
+function drawTooltipAt(dt,msg){
+  X.font='600 12.5px "Noto Sans KR"';
+  const tw=X.measureText(msg).width+26,th=34,tx2=dt.x,ty2=dt.y-dt.r-16;
+  X.fillStyle='rgba(30,30,30,.88)';rr(tx2-tw/2,ty2-th,tw,th,8);X.fill();
+  X.beginPath();X.moveTo(tx2-5,ty2);X.lineTo(tx2,ty2+6);X.lineTo(tx2+5,ty2);X.closePath();X.fill();
+  X.fillStyle='#fff';X.textAlign='center';X.fillText(msg,tx2,ty2-th+22);X.textAlign='left';
+}
+
+function drawReset(){
+  const rx=W-52,ry=H-52,r2=23;
+  X.fillStyle='rgba(40,40,40,.6)';X.beginPath();X.arc(rx,ry,r2,0,Math.PI*2);X.fill();
+  X.strokeStyle='#fff';X.lineWidth=2.2;X.lineCap='round';
+  X.beginPath();X.arc(rx,ry,r2*.42,-.8*Math.PI,.6*Math.PI);X.stroke();
+  const ax=rx+Math.cos(.6*Math.PI)*r2*.42,ay=ry+Math.sin(.6*Math.PI)*r2*.42;
+  X.beginPath();X.moveTo(ax-3,ay-5);X.lineTo(ax,ay);X.lineTo(ax+5,ay-2);X.stroke();
+}
+
+function rr(x,y,w,h,r){X.beginPath();X.moveTo(x+r,y);X.lineTo(x+w-r,y);X.quadraticCurveTo(x+w,y,x+w,y+r);X.lineTo(x+w,y+h-r);X.quadraticCurveTo(x+w,y+h,x+w-r,y+h);X.lineTo(x+r,y+h);X.quadraticCurveTo(x,y+h,x,y+h-r);X.lineTo(x,y+r);X.quadraticCurveTo(x,y,x+r,y);X.closePath();}
+
+/* ═══ INTERACTION ═══ */
+function gp(e){const r=C.getBoundingClientRect(),t=e.touches?e.touches[0]:e;return{x:t.clientX-r.left,y:t.clientY-r.top};}
+C.addEventListener('mousedown',dn);C.addEventListener('touchstart',e=>{e.preventDefault();dn(e);},{passive:false});
+C.addEventListener('mousemove',mv);C.addEventListener('touchmove',e=>{e.preventDefault();mv(e);},{passive:false});
+C.addEventListener('mouseup',up);C.addEventListener('touchend',up);
+
+function dn(e){
+  const p=gp(e);
+  // Reset btn
+  if(phase!=='selectPlate'&&Math.hypot(p.x-(W-52),p.y-(H-52))<26){doReset();return;}
+  // Plate cards
+  if(phase==='selectPlate'){
+    for(const c of plateCards){if(p.x>=c.x&&p.x<=c.x+c.w&&p.y>=c.y&&p.y<=c.y+c.h){dragging=c.type;dragX=p.x;dragY=p.y;C.style.cursor='grabbing';draw();return;}}
+  }
+  // Candle card
+  if(phase==='plateReady'&&!candlePlaced){
+    const cd=candleCard;
+    if(p.x>=cd.x&&p.x<=cd.x+cd.w&&p.y>=cd.y&&p.y<=cd.y+cd.h){
+      dragging='candle';dragX=p.x;dragY=p.y;C.style.cursor='grabbing';draw();return;
+    }
+  }
+}
+
+function mv(e){if(!dragging)return;const p=gp(e);dragX=p.x;dragY=p.y;draw();}
+
+function up(){
+  if(!dragging)return;C.style.cursor='default';
+  if(dragging==='candle'){
+    const dt=candleDropTarget;
+    if(Math.hypot(dragX-dt.x,dragY-dt.y)<dt.r*1.3){
+      candlePlaced=true;
+      dragging=null;
+      mascotMsg='색깔 변화를\n관찰해 봅시다.';
+      draw();
+      setTimeout(()=>{phase='heating';heatTick=0;requestAnimationFrame(sim);},600);
+    }else{dragging=null;draw();}
+  } else {
+    const dt=dropTarget;
+    if(Math.hypot(dragX-dt.x,dragY-dt.y)<dt.r*1.2){
+      selectedPlate=dragging;phase='plateReady';candlePlaced=false;resetH();
+      mascotMsg='고온용 열 변색 붙임딱지를 붙인\n구리판을 스탠드에 고정했어요.\n이제 초를 드래그해 주세요.';
+      dragging=null;draw();
+    }else{dragging=null;draw();}
+  }
+}
+
+function sim(){
+  if(phase!=='heating')return;
+  heatTick++;propagate();draw();
+  if(heatTick<500)requestAnimationFrame(sim);
+  else{phase='done';mascotMsg='실험 완료!\n열은 온도가 높은 곳에서\n낮은 곳으로 이동해요.\n이것을 전도라고 합니다.';draw();}
+}
+
+function doReset(){
+  phase='selectPlate';selectedPlate=null;dragging=null;heatTick=0;particles=[];candlePlaced=false;
+  mascotMsg='세 가지 모양의 구리판 중\n하나를 골라 드래그해 주세요.';resetH();draw();
+}
+
+resize();
+</script>
+</body>
+</html>
